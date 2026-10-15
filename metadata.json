@@ -1,0 +1,8 @@
+{
+  "name": "Remix CoupleSplit - Shared Household Expense Tracker",
+  "description": "Shared daily expense tracker for couples and housemates with category monthly breakdown, split tracking, and Android \u0026 desktop support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

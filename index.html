@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>CoupleSplit - Shared Household Expense Tracker</title>
+    <meta name="description" content="Shared daily expense tracker for couples and housemates with category monthly breakdown, split tracking, and Android & desktop support." />
+    <meta property="og:title" content="CoupleSplit - Shared Household Expense Tracker" />
+    <meta property="og:description" content="Shared daily expense tracker for couples and housemates with category monthly breakdown, split tracking, and Android & desktop support." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#10b981" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="CoupleSplit" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('couplesplit_app_theme') || 'emerald-light';
+          document.documentElement.setAttribute('data-theme', saved);
+          var darkThemes = ['midnight-dark', 'indigo-night', 'forest-dark', 'amethyst-dark', 'sunset-warm'];
+          if (darkThemes.indexOf(saved) !== -1) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+          }
+          var themeColors = {
+            'emerald-light': '#10b981',
+            'pink-light': '#ec4899',
+            'teal-light': '#0d9488',
+            'lavender-light': '#8b5cf6',
+            'peach-light': '#ea580c',
+            'midnight-dark': '#090d16',
+            'indigo-night': '#070a14',
+            'forest-dark': '#06110a',
+            'amethyst-dark': '#0b0714',
+            'sunset-warm': '#160e0c'
+          };
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta && themeColors[saved]) {
+            meta.setAttribute('content', themeColors[saved]);
+          }
+        } catch (e) {}
+      })();
+    </script>
+  <body class="antialiased font-sans">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

@@ -1,0 +1,23 @@
+{
+  "HOME-2026": {
+    "id": "HOME-2026",
+    "name": "Our Shared Home",
+    "currency": "₹",
+    "members": [
+      {
+        "id": "m1",
+        "name": "Shriya",
+        "color": "#10b981",
+        "avatar": "👩"
+      },
+      {
+        "id": "m2",
+        "name": "Husband",
+        "color": "#3b82f6",
+        "avatar": "👨"
+      }
+    ],
+    "createdAt": "2026-10-14T18:11:28.793Z",
+    "updatedAt": "2026-10-14T18:29:50.369Z"
+  }
+}

@@ -1,0 +1,537 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+/* ========================================================
+   CoupleSplit Multi-Theme & Dark Mode System
+   Persisted across sessions & memory purges via localStorage
+   ======================================================== */
+
+:root,
+[data-theme="emerald-light"],
+html.emerald-light {
+  --theme-id: 'emerald-light';
+  --app-bg: #f4f7f5;
+  --card-bg: #ffffff;
+  --card-sub-bg: #ecfdf5;
+  --card-sub-bg-hover: #d1fae5;
+  --card-border: #a7f3d0;
+  --text-main: #064e3b;
+  --text-muted: #047857;
+  --text-dim: #059669;
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  --accent-color: #10b981;
+  --accent-hover: #059669;
+  --accent-light: #ecfdf5;
+  --accent-text: #047857;
+  color-scheme: light;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Light Theme 2: Rose Blush (Pink Theme) */
+[data-theme="pink-light"],
+html.pink-light {
+  --theme-id: 'pink-light';
+  --app-bg: #fff0f5;
+  --card-bg: #ffffff;
+  --card-sub-bg: #fdf2f8;
+  --card-sub-bg-hover: #fce7f3;
+  --card-border: #fbcfe8;
+  --text-main: #881337;
+  --text-muted: #9d174d;
+  --text-dim: #db2777;
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  --accent-color: #ec4899;
+  --accent-hover: #db2777;
+  --accent-light: #fdf2f8;
+  --accent-text: #be185d;
+  color-scheme: light;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Light Theme 3: Ocean Teal (Teal Theme) */
+[data-theme="teal-light"],
+html.teal-light {
+  --theme-id: 'teal-light';
+  --app-bg: #f0fdfa;
+  --card-bg: #ffffff;
+  --card-sub-bg: #e6fffa;
+  --card-sub-bg-hover: #ccfbf1;
+  --card-border: #99f6e4;
+  --text-main: #134e4a;
+  --text-muted: #0f766e;
+  --text-dim: #14b8a6;
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  --accent-color: #0d9488;
+  --accent-hover: #0f766e;
+  --accent-light: #ccfbf1;
+  --accent-text: #115e59;
+  color-scheme: light;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Light Theme 4: Pastel Lavender */
+[data-theme="lavender-light"],
+html.lavender-light {
+  --theme-id: 'lavender-light';
+  --app-bg: #faf5ff;
+  --card-bg: #ffffff;
+  --card-sub-bg: #f3e8ff;
+  --card-sub-bg-hover: #e9d5ff;
+  --card-border: #e9d5ff;
+  --text-main: #3b0764;
+  --text-muted: #6b21a8;
+  --text-dim: #9333ea;
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  --accent-color: #8b5cf6;
+  --accent-hover: #7c3aed;
+  --accent-light: #f3e8ff;
+  --accent-text: #581c87;
+  color-scheme: light;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Light Theme 5: Peach Blossom */
+[data-theme="peach-light"],
+html.peach-light {
+  --theme-id: 'peach-light';
+  --app-bg: #fff7ed;
+  --card-bg: #ffffff;
+  --card-sub-bg: #ffedd5;
+  --card-sub-bg-hover: #fed7aa;
+  --card-border: #fed7aa;
+  --text-main: #7c2d12;
+  --text-muted: #9a3412;
+  --text-dim: #ea580c;
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  --accent-color: #ea580c;
+  --accent-hover: #c2410c;
+  --accent-light: #ffedd5;
+  --accent-text: #9a3412;
+  color-scheme: light;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Dark Theme 1: Midnight Dark (OLED / Slate Dark) */
+[data-theme="midnight-dark"],
+html.midnight-dark {
+  --theme-id: 'midnight-dark';
+  --app-bg: #090d16;
+  --card-bg: #111827;
+  --card-sub-bg: #1e293b;
+  --card-sub-bg-hover: #334155;
+  --card-border: #283548;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --nav-bg: rgba(13, 19, 31, 0.95);
+  --accent-color: #10b981;
+  --accent-hover: #34d399;
+  --accent-light: #064e3b;
+  --accent-text: #6ee7b7;
+  color-scheme: dark;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Dark Theme 2: Indigo Night (Royal Sapphire Dark) */
+[data-theme="indigo-night"],
+html.indigo-night {
+  --theme-id: 'indigo-night';
+  --app-bg: #070a14;
+  --card-bg: #10162a;
+  --card-sub-bg: #182240;
+  --card-sub-bg-hover: #223059;
+  --card-border: #273663;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --nav-bg: rgba(11, 15, 32, 0.95);
+  --accent-color: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-light: #312e81;
+  --accent-text: #a5b4fc;
+  color-scheme: dark;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Dark Theme 3: Forest Canopy (Botanical Sage & Deep Pine) */
+[data-theme="forest-dark"],
+html.forest-dark {
+  --theme-id: 'forest-dark';
+  --app-bg: #06110a;
+  --card-bg: #0c1f14;
+  --card-sub-bg: #142e1f;
+  --card-sub-bg-hover: #1c3e2b;
+  --card-border: #1e4530;
+  --text-main: #f0fdf4;
+  --text-muted: #86efac;
+  --text-dim: #4ade80;
+  --nav-bg: rgba(9, 23, 14, 0.95);
+  --accent-color: #22c55e;
+  --accent-hover: #4ade80;
+  --accent-light: #14532d;
+  --accent-text: #86efac;
+  color-scheme: dark;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Dark Theme 4: Royal Amethyst (Deep Purple Luxury Dark) */
+[data-theme="amethyst-dark"],
+html.amethyst-dark {
+  --theme-id: 'amethyst-dark';
+  --app-bg: #0b0714;
+  --card-bg: #150f26;
+  --card-sub-bg: #22193b;
+  --card-sub-bg-hover: #302354;
+  --card-border: #3c2a63;
+  --text-main: #faf5ff;
+  --text-muted: #c084fc;
+  --text-dim: #9333ea;
+  --nav-bg: rgba(16, 11, 30, 0.95);
+  --accent-color: #a855f7;
+  --accent-hover: #c084fc;
+  --accent-light: #581c87;
+  --accent-text: #e9d5ff;
+  color-scheme: dark;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Dark Theme 5: Sunset Warmth (Cozy Terracotta & Sand) */
+[data-theme="sunset-warm"],
+html.sunset-warm {
+  --theme-id: 'sunset-warm';
+  --app-bg: #160e0c;
+  --card-bg: #221614;
+  --card-sub-bg: #33201d;
+  --card-sub-bg-hover: #462c27;
+  --card-border: #4d312b;
+  --text-main: #fff7ed;
+  --text-muted: #fdba74;
+  --text-dim: #fb923c;
+  --nav-bg: rgba(28, 18, 16, 0.95);
+  --accent-color: #f97316;
+  --accent-hover: #fb923c;
+  --accent-light: #7c2d12;
+  --accent-text: #fed7aa;
+  color-scheme: dark;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ========================================================
+   Global Theme Rules Applied to Entire Application
+   ======================================================== */
+
+html,
+body,
+#root {
+  background-color: var(--app-bg) !important;
+  color: var(--text-main);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Main Canvas Containers */
+[data-theme] .bg-slate-50,
+[data-theme] .app-canvas {
+  background-color: var(--app-bg) !important;
+}
+
+/* Cards & Elevated Surfaces */
+[data-theme] .bg-white {
+  background-color: var(--card-bg) !important;
+}
+
+/* Sub-surfaces & Chip Backgrounds */
+[data-theme] .bg-slate-100 {
+  background-color: var(--card-sub-bg) !important;
+}
+
+[data-theme] .hover\:bg-slate-50:hover {
+  background-color: var(--card-sub-bg) !important;
+}
+
+[data-theme] .hover\:bg-slate-100:hover,
+[data-theme] .hover\:bg-slate-200:hover {
+  background-color: var(--card-sub-bg-hover) !important;
+}
+
+/* Borders & Dividers */
+[data-theme] .border-slate-200,
+[data-theme] .border-slate-200\/80,
+[data-theme] .border-slate-200\/60,
+[data-theme] .border-slate-100,
+[data-theme] .divide-slate-100 > * + *,
+[data-theme] .divide-slate-200 > * + * {
+  border-color: var(--card-border) !important;
+}
+
+/* Top Navigation Header & Bottom Navigation Bar */
+[data-theme] header {
+  background-color: var(--nav-bg) !important;
+  border-color: var(--card-border) !important;
+}
+
+[data-theme] nav {
+  background-color: var(--nav-bg) !important;
+  border-color: var(--card-border) !important;
+}
+
+/* Primary Action Buttons & FAB using Theme Accent */
+[data-theme] .bg-emerald-600,
+[data-theme] button.bg-emerald-600 {
+  background-color: var(--accent-color) !important;
+  color: #ffffff !important;
+}
+
+[data-theme] .bg-emerald-600:hover,
+[data-theme] button.bg-emerald-600:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+[data-theme] .bg-emerald-700,
+[data-theme] button.bg-emerald-700 {
+  background-color: var(--accent-hover) !important;
+  color: #ffffff !important;
+}
+
+[data-theme] .hover\:bg-emerald-700:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+/* Floating Action Button (FAB) Shadows & Glows */
+[data-theme] .shadow-emerald-600\/35,
+[data-theme] .shadow-emerald-700\/40 {
+  box-shadow: 0 10px 25px -5px var(--accent-color) !important;
+}
+
+[data-theme] .ring-emerald-500\/30 {
+  --tw-ring-color: var(--accent-color) !important;
+}
+
+/* Active Nav Indicator Pills & Badges */
+[data-theme] .bg-emerald-100 {
+  background-color: var(--accent-light) !important;
+  color: var(--accent-text) !important;
+}
+
+/* Theme Accent Text & Brand Elements */
+[data-theme] .text-emerald-600,
+[data-theme] .text-emerald-500,
+[data-theme] .text-emerald-400 {
+  color: var(--accent-color) !important;
+}
+
+/* Focus Rings & Form Accents */
+[data-theme] .focus\:ring-emerald-500\/20:focus {
+  --tw-ring-color: var(--accent-light) !important;
+}
+
+[data-theme] .focus\:border-emerald-500:focus {
+  border-color: var(--accent-color) !important;
+}
+
+[data-theme] ::selection {
+  background-color: var(--accent-color) !important;
+  color: #ffffff !important;
+}
+
+/* ========================================================
+   LIGHT THEME ENFORCEMENT ACROSS ALL UI SECTIONS
+   Ensures cards never keep dark blue background in light modes
+   ======================================================== */
+
+html:not(.dark) body,
+html.light body,
+[data-theme="emerald-light"],
+[data-theme="pink-light"],
+[data-theme="teal-light"],
+[data-theme="lavender-light"],
+[data-theme="peach-light"] {
+  /* Override any dark:bg utilities on cards and sections */
+  & .dark\:bg-slate-900,
+  & [class*="dark:bg-slate-900"],
+  & .dark\:bg-slate-900\/90,
+  & .dark\:bg-slate-900\/95,
+  & .bg-white {
+    background-color: var(--card-bg) !important;
+  }
+
+  & .dark\:bg-slate-800,
+  & .dark\:bg-slate-800\/70,
+  & .dark\:bg-slate-800\/60,
+  & [class*="dark:bg-slate-800"],
+  & .bg-slate-100 {
+    background-color: var(--card-sub-bg) !important;
+  }
+
+  & .dark\:hover\:bg-slate-800:hover,
+  & .dark\:hover\:bg-slate-700:hover {
+    background-color: var(--card-sub-bg-hover) !important;
+  }
+
+  & .dark\:border-slate-800,
+  & .dark\:border-slate-800\/80,
+  & .dark\:border-slate-700,
+  & .dark\:border-slate-700\/80,
+  & .dark\:border-slate-700\/60 {
+    border-color: var(--card-border) !important;
+  }
+
+  & .dark\:text-white,
+  & .dark\:text-slate-100,
+  & .dark\:text-slate-200 {
+    color: var(--text-main) !important;
+  }
+
+  & .dark\:text-slate-300,
+  & .dark\:text-slate-400 {
+    color: var(--text-muted) !important;
+  }
+
+  & .dark\:text-slate-500,
+  & .dark\:text-slate-600 {
+    color: var(--text-dim) !important;
+  }
+
+  /* Form controls in light mode */
+  & input:not([type="checkbox"]):not([type="radio"]),
+  & select,
+  & textarea {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-main) !important;
+  }
+
+  & select option {
+    background-color: var(--card-bg) !important;
+    color: var(--text-main) !important;
+  }
+}
+
+/* ========================================================
+   DARK THEME ENFORCEMENT ACROSS ALL UI SECTIONS
+   Only active when html.dark is present
+   ======================================================== */
+
+html.dark[data-theme] {
+  background-color: var(--app-bg) !important;
+  color: var(--text-main);
+}
+
+html.dark[data-theme] .bg-white,
+html.dark[data-theme] .dark\:bg-slate-900,
+html.dark[data-theme] [class*="dark:bg-slate-900"] {
+  background-color: var(--card-bg) !important;
+}
+
+html.dark[data-theme] .bg-slate-100,
+html.dark[data-theme] .dark\:bg-slate-800,
+html.dark[data-theme] [class*="dark:bg-slate-800"] {
+  background-color: var(--card-sub-bg) !important;
+}
+
+html.dark[data-theme] .border-slate-200,
+html.dark[data-theme] .dark\:border-slate-800,
+html.dark[data-theme] .dark\:border-slate-700 {
+  border-color: var(--card-border) !important;
+}
+
+html.dark[data-theme] .text-slate-900,
+html.dark[data-theme] .text-slate-800,
+html.dark[data-theme] .dark\:text-white,
+html.dark[data-theme] .dark\:text-slate-100 {
+  color: var(--text-main) !important;
+}
+
+html.dark[data-theme] .text-slate-700,
+html.dark[data-theme] .text-slate-600,
+html.dark[data-theme] .dark\:text-slate-300 {
+  color: var(--text-muted) !important;
+}
+
+html.dark[data-theme] .text-slate-500,
+html.dark[data-theme] .text-slate-400,
+html.dark[data-theme] .dark\:text-slate-400 {
+  color: var(--text-dim) !important;
+}
+
+html.dark[data-theme] input:not([type="checkbox"]):not([type="radio"]),
+html.dark[data-theme] select,
+html.dark[data-theme] textarea {
+  background-color: var(--card-sub-bg) !important;
+  color: var(--text-main) !important;
+  border-color: var(--card-border) !important;
+}
+
+html.dark[data-theme] input::placeholder,
+html.dark[data-theme] textarea::placeholder {
+  color: var(--text-dim) !important;
+}
+
+html.dark[data-theme] select option {
+  background-color: var(--card-bg) !important;
+  color: var(--text-main) !important;
+}
+
+/* ========================================================
+   Hide Scrollbar Utility (Cross-Browser)
+   ======================================================== */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* ========================================================
+   Strict Mobile Viewport & Zero Horizontal Scrolling Rules
+   Ensures automatic fluid resizing to any Android phone width
+   ======================================================== */
+html,
+body {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden !important;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+  overscroll-behavior-x: none;
+}
+
+#root {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden !important;
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas,
+iframe {
+  max-width: 100%;
+}
+
+/* Prevent iOS & Android mobile browser zoom shifting on form input focus without blowing up compact filter selects */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select:not(.filter-chip-select),
+  textarea {
+    font-size: 16px !important;
+  }
+}
