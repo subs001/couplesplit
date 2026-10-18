@@ -16,9 +16,106 @@ export const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 // Initialize Firebase App safely (singleton)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
+export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
 
 const provider = new GoogleAuthProvider();
 SCOPES.forEach((scope) => provider.addScope(scope));
+provider.setCustomParameters({ prompt: 'select_account' });
+
+export interface ParsedAuthError {
+  code: string;
+  title: string;
+  message: string;
+  actionUrl?: string;
+  actionText?: string;
+  domainToAuthorize?: string;
+  isTesterAccessIssue?: boolean;
+  cloudConsentUrl?: string;
+}
+
+export function parseFirebaseAuthError(error: unknown): ParsedAuthError {
+  const errObj = error as { code?: string; message?: string };
+  const code = errObj?.code || 'unknown';
+  const rawMessage = errObj?.message || (error instanceof Error ? error.message : 'Authentication failed');
+
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const consentUrl = `https://console.cloud.google.com/apis/credentials/consent?project=${FIREBASE_PROJECT_ID}`;
+
+  // Check for developer-approved testers / Google verification restriction
+  if (
+    rawMessage.toLowerCase().includes('developer-approved testers') ||
+    rawMessage.toLowerCase().includes('verification process') ||
+    rawMessage.toLowerCase().includes('access_denied') ||
+    rawMessage.toLowerCase().includes('not completed the google verification')
+  ) {
+    return {
+      code: 'auth/tester-access-required',
+      title: 'Developer-Approved Tester Required',
+      message: `Google Cloud project "${FIREBASE_PROJECT_ID}" is currently in "Testing" mode. Google requires your email to be added to "Test users" in Google Cloud Console before you can sign in.`,
+      isTesterAccessIssue: true,
+      cloudConsentUrl: consentUrl,
+      actionUrl: consentUrl,
+      actionText: 'Open Google Cloud Consent Screen',
+    };
+  }
+
+  if (code === 'auth/unauthorized-domain' || rawMessage.includes('auth/unauthorized-domain')) {
+    return {
+      code: 'auth/unauthorized-domain',
+      title: 'Domain Not Authorized in Firebase',
+      message: `The domain "${hostname}" is not authorized for OAuth in Firebase project "${FIREBASE_PROJECT_ID}". Add it to your Authorized Domains in Firebase Console.`,
+      domainToAuthorize: hostname,
+      actionUrl: `https://console.firebase.google.com/project/${FIREBASE_PROJECT_ID}/authentication/settings`,
+      actionText: 'Open Firebase Authorized Domains',
+    };
+  }
+
+  if (code === 'auth/operation-not-allowed' || rawMessage.includes('auth/operation-not-allowed')) {
+    return {
+      code: 'auth/operation-not-allowed',
+      title: 'Google Sign-In Provider is Disabled',
+      message: `Google Sign-in is not enabled in Firebase project "${FIREBASE_PROJECT_ID}". Enable the Google provider under Sign-in method in Firebase Console.`,
+      actionUrl: `https://console.firebase.google.com/project/${FIREBASE_PROJECT_ID}/authentication/providers`,
+      actionText: 'Enable Google Sign-in in Firebase',
+    };
+  }
+
+  if (code === 'auth/popup-blocked' || rawMessage.includes('popup-blocked')) {
+    return {
+      code: 'auth/popup-blocked',
+      title: 'Popup Blocked by Browser',
+      message: 'The sign-in popup was blocked. Please allow popups for this site or open the app directly in a full browser tab.',
+    };
+  }
+
+  if (code === 'auth/popup-closed-by-user' || rawMessage.includes('popup-closed-by-user')) {
+    return {
+      code: 'auth/popup-closed-by-user',
+      title: 'Sign-in Window Closed or Blocked',
+      message: 'The sign-in window was closed. If Google showed "has not completed the Google verification process / developer-approved testers", your email needs to be added as a Test User in Google Cloud Console.',
+      isTesterAccessIssue: true,
+      cloudConsentUrl: consentUrl,
+      actionUrl: consentUrl,
+      actionText: 'Add Test User in Google Cloud Console',
+    };
+  }
+
+  if (code === 'auth/cancelled-popup-request') {
+    return {
+      code: 'auth/cancelled-popup-request',
+      title: 'Request Cancelled',
+      message: 'A previous sign-in attempt was interrupted. Click below to try again.',
+    };
+  }
+
+  return {
+    code,
+    title: 'Google Sign-In Failed',
+    message: rawMessage.replace(/^Firebase:\s*/i, ''),
+    actionUrl: `https://console.firebase.google.com/project/${FIREBASE_PROJECT_ID}/authentication/settings`,
+    actionText: 'Check Firebase Auth Settings',
+  };
+}
 
 // In-memory cache for access token (never persisted to localStorage/sessionStorage as mandated)
 let cachedAccessToken: string | null = null;

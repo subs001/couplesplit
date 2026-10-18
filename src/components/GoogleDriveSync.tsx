@@ -4,6 +4,9 @@ import {
   signInWithGoogle,
   signOutGoogle,
   DriveFileMeta,
+  parseFirebaseAuthError,
+  ParsedAuthError,
+  FIREBASE_PROJECT_ID,
 } from '../services/googleDrive';
 import { 
   Cloud, 
@@ -15,7 +18,10 @@ import {
   AlertCircle,
   Shield,
   Smartphone,
-  Laptop
+  Laptop,
+  Copy,
+  Check,
+  HelpCircle,
 } from 'lucide-react';
 
 interface GoogleDriveSyncProps {
@@ -49,11 +55,15 @@ export const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({
 }) => {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<ParsedAuthError | null>(null);
+  const [copiedDomain, setCopiedDomain] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSignIn = async () => {
     setIsSigningIn(true);
     setError(null);
+    setAuthError(null);
     try {
       const res = await signInWithGoogle();
       if (res) {
@@ -62,10 +72,19 @@ export const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({
         setTimeout(() => setSuccessMsg(null), 3500);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Google sign in failed';
-      setError(msg);
+      const parsed = parseFirebaseAuthError(err);
+      setAuthError(parsed);
+      setError(parsed.message);
     } finally {
       setIsSigningIn(false);
+    }
+  };
+
+  const handleCopyCurrentDomain = () => {
+    if (typeof window !== 'undefined') {
+      navigator.clipboard.writeText(window.location.hostname);
+      setCopiedDomain(true);
+      setTimeout(() => setCopiedDomain(false), 2500);
     }
   };
 
@@ -151,8 +170,121 @@ export const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Messages */}
-        {error && (
+        {/* Enhanced Firebase Auth Error Diagnostic Panel */}
+        {authError && (
+          <div className="p-4 sm:p-5 bg-amber-50/95 border border-amber-300 rounded-2xl text-left space-y-3.5 shadow-xs animate-in fade-in duration-200">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+              <div className="space-y-1 flex-1">
+                <h5 className="font-bold text-xs sm:text-sm text-amber-950 flex items-center gap-2">
+                  <span>{authError.title}</span>
+                  {authError.isTesterAccessIssue && (
+                    <span className="text-[10px] bg-amber-200/80 text-amber-900 font-semibold px-2 py-0.5 rounded-full">
+                      OAuth Consent Screen
+                    </span>
+                  )}
+                </h5>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  {authError.message}
+                </p>
+              </div>
+            </div>
+
+            {/* Test User / Google Verification Resolution Guide */}
+            {authError.isTesterAccessIssue && (
+              <div className="p-3.5 bg-white rounded-xl border border-amber-300 text-xs text-slate-700 space-y-3 shadow-2xs">
+                <div className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                  <Shield className="w-4 h-4 text-amber-600" />
+                  <span>How to fix &quot;developer-approved testers&quot; in Google Cloud (1 min):</span>
+                </div>
+
+                <div className="text-[11px] text-slate-600 leading-relaxed bg-amber-50/60 p-2.5 rounded-lg border border-amber-200/70">
+                  Google Cloud marks new OAuth apps as <strong>&quot;Testing&quot;</strong> by default. While in Testing mode, only Google accounts explicitly listed under <strong>Test Users</strong> can sign in with Google Drive access.
+                </div>
+
+                <ol className="list-decimal list-inside space-y-1.5 text-xs text-slate-700 font-medium">
+                  <li>
+                    Click the button below to open the OAuth Consent Screen for project{' '}
+                    <code className="font-mono font-bold text-amber-900">{FIREBASE_PROJECT_ID}</code>.
+                  </li>
+                  <li>
+                    Scroll down to the <strong>&quot;Test users&quot;</strong> section and click <strong>&quot;+ ADD USERS&quot;</strong>.
+                  </li>
+                  <li>
+                    Type your Google account email (e.g. your Gmail) and click <strong>Save</strong>.
+                    <span className="block text-[11px] text-slate-500 font-normal pl-4 mt-0.5">
+                      <em>Alternative:</em> Under &quot;Publishing status&quot;, click <strong>&quot;PUBLISH APP&quot;</strong> to allow any account to sign in.
+                    </span>
+                  </li>
+                  <li>
+                    Return to this page and click <strong>&quot;Sign in with Google&quot;</strong> again.
+                  </li>
+                </ol>
+
+                <div className="pt-1 flex flex-wrap items-center gap-2">
+                  <a
+                    href={`https://console.cloud.google.com/apis/credentials/consent?project=${FIREBASE_PROJECT_ID}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition"
+                  >
+                    <span>Open OAuth Consent Screen in Google Cloud</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {authError.domainToAuthorize && (
+              <div className="p-3 bg-white rounded-xl border border-amber-200 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-semibold uppercase text-slate-500 block">
+                      Domain to add to Firebase:
+                    </span>
+                    <code className="text-xs font-mono font-bold text-slate-900 break-all select-all">
+                      {authError.domainToAuthorize}
+                    </code>
+                  </div>
+                  <button
+                    onClick={handleCopyCurrentDomain}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-semibold transition shrink-0 cursor-pointer"
+                  >
+                    {copiedDomain ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedDomain ? 'Copied!' : 'Copy Domain'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {authError.actionUrl && !authError.isTesterAccessIssue && (
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <a
+                  href={authError.actionUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold shadow-xs transition"
+                >
+                  <span>{authError.actionText || 'Open Firebase Console'}</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            )}
+
+            {authError.code === 'auth/unauthorized-domain' && (
+              <div className="text-[11px] text-amber-900/80 bg-amber-100/50 p-2.5 rounded-lg space-y-1">
+                <div className="font-bold">Quick 3-Step Fix:</div>
+                <ol className="list-decimal list-inside space-y-0.5">
+                  <li>Click <strong>&quot;Copy Domain&quot;</strong> above.</li>
+                  <li>Click <strong>&quot;Open Firebase Authorized Domains&quot;</strong>, then click <strong>&quot;Add domain&quot;</strong>.</li>
+                  <li>Paste the domain, click <strong>Save</strong>, and click <strong>&quot;Sign in with Google&quot;</strong> again.</li>
+                </ol>
+              </div>
+            )}
+          </div>
+        )}
+
+        {error && !authError && (
           <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
@@ -196,6 +328,71 @@ export const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({
               </svg>
               <span>{isSigningIn ? 'Connecting to Google...' : 'Sign in with Google'}</span>
             </button>
+
+            {/* Firebase Checklist / Helper */}
+            <div className="pt-2 space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowSetupGuide(!showSetupGuide)}
+                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition cursor-pointer"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
+                <span>{showSetupGuide ? 'Hide Setup Steps' : 'First time or seeing "testers" error? View 3-step setup guide'}</span>
+              </button>
+
+              {showSetupGuide && (
+                <div className="mt-3 p-4 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-left text-xs text-slate-600 dark:text-slate-300 space-y-3 border border-slate-200 dark:border-slate-700 animate-in fade-in duration-150">
+                  <div className="font-bold text-slate-800 dark:text-white">
+                    Google Cloud &amp; Firebase Checklist (Project: <code className="font-mono text-emerald-600 dark:text-emerald-400">{FIREBASE_PROJECT_ID}</code>):
+                  </div>
+                  <ol className="list-decimal list-inside space-y-2.5 leading-relaxed">
+                    <li>
+                      <strong>Enable Google Sign-In in Firebase:</strong> Go to{' '}
+                      <a
+                        href={`https://console.firebase.google.com/project/${FIREBASE_PROJECT_ID}/authentication/providers`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-600 dark:text-emerald-400 font-semibold underline inline-flex items-center gap-0.5"
+                      >
+                        Sign-in method <ExternalLink className="w-3 h-3 inline" />
+                      </a>
+                      , click <em>Google</em>, toggle <em>Enable</em>, pick a support email, and click <em>Save</em>.
+                    </li>
+                    <li>
+                      <strong>Add Authorized Domain:</strong> Go to{' '}
+                      <a
+                        href={`https://console.firebase.google.com/project/${FIREBASE_PROJECT_ID}/authentication/settings`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-600 dark:text-emerald-400 font-semibold underline inline-flex items-center gap-0.5"
+                      >
+                        Auth Settings <ExternalLink className="w-3 h-3 inline" />
+                      </a>
+                      , scroll down to <em>Authorized domains</em>, click <em>Add domain</em>, and add{' '}
+                      <code className="bg-white dark:bg-slate-900 px-1 py-0.5 rounded font-mono font-bold select-all">
+                        {typeof window !== 'undefined' ? window.location.hostname : 'run.app'}
+                      </code>
+                      .
+                    </li>
+                    <li className="bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200">
+                      <strong>Add Your Email as a Test User (Fixes &quot;developer-approved testers&quot; warning):</strong>
+                      <p className="mt-1 text-[11px] text-amber-800 dark:text-amber-300">
+                        Open the{' '}
+                        <a
+                          href={`https://console.cloud.google.com/apis/credentials/consent?project=${FIREBASE_PROJECT_ID}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold underline inline-flex items-center gap-0.5"
+                        >
+                          Google Cloud OAuth Consent Screen <ExternalLink className="w-3 h-3 inline" />
+                        </a>
+                        , scroll to <em>Test users</em>, click <strong>+ ADD USERS</strong>, add your email address, and click <em>Save</em>. (Or click <em>Publish App</em>).
+                      </p>
+                    </li>
+                  </ol>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           /* Connected State & Controls */
