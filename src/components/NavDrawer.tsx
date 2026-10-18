@@ -19,7 +19,8 @@ import {
   Check,
   Smartphone,
   ChevronRight,
-  Database
+  Database,
+  CreditCard
 } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
@@ -30,6 +31,7 @@ interface NavDrawerProps {
   onSelectTab: (tab: 'list' | 'add' | 'monthly' | 'split' | 'household') => void;
   onOpenThemeModal: () => void;
   onOpenCategoryManager: () => void;
+  onOpenPaymentMethodManager?: () => void;
   onOpenDriveModal: () => void;
   onDownloadCSV: () => void;
   onDownloadJSON: () => void;
@@ -37,6 +39,7 @@ interface NavDrawerProps {
   currentTheme: AppThemeId;
   householdId: string;
   categoryCount: number;
+  paymentMethodCount?: number;
   expenseCount: number;
   members: Member[];
   onShareLink: () => void;
@@ -263,7 +266,7 @@ export const NavDrawer: React.FC<NavDrawerProps> = ({
               className="w-full p-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 text-left flex items-center justify-between transition cursor-pointer"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-slate-900 dark:text-white">
                     Expense Categories
@@ -275,6 +278,30 @@ export const NavDrawer: React.FC<NavDrawerProps> = ({
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>
+
+            {/* 3. Payment Modes */}
+            {onOpenPaymentMethodManager && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenPaymentMethodManager();
+                }}
+                className="w-full p-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 text-left flex items-center justify-between transition cursor-pointer"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-slate-900 dark:text-white">
+                      Payment Modes
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {paymentMethodCount !== undefined ? `${paymentMethodCount} active modes` : 'Cards, UPI & banks'}
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+            )}
 
             {/* 3. Theme Selector */}
             <button

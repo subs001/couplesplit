@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { CATEGORIES, PAYMENT_METHODS, Expense, Member, SplitType, CategoryInfo } from '../types';
-import { Plus, Check, Calendar, ArrowLeft, Trash2, Split, Users, User, Percent, Settings2 } from 'lucide-react';
+import { CATEGORIES, PAYMENT_METHODS, Expense, Member, SplitType, CategoryInfo, PaymentMethodInfo } from '../types';
+import { Plus, Check, Calendar, ArrowLeft, Trash2, Split, Users, User, Percent, Settings2, CreditCard } from 'lucide-react';
 
 interface AddExpenseFormProps {
   householdId: string;
   currency: string;
   members: Member[];
   categories?: CategoryInfo[];
+  paymentMethods?: PaymentMethodInfo[];
   onOpenCategoryManager?: () => void;
+  onOpenPaymentMethodManager?: () => void;
   initialData?: Expense | null;
   onSave: (expenseData: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
@@ -19,20 +21,27 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
   currency,
   members,
   categories,
+  paymentMethods,
   onOpenCategoryManager,
+  onOpenPaymentMethodManager,
   initialData,
   onSave,
   onDelete,
   onCancel,
 }) => {
   const activeCategories = categories && categories.length > 0 ? categories : CATEGORIES;
+  const activePaymentMethods = paymentMethods && paymentMethods.length > 0 ? paymentMethods : PAYMENT_METHODS;
   const [amount, setAmount] = useState<string>(initialData ? String(initialData.amount) : '');
   const [category, setCategory] = useState<string>(
     initialData ? initialData.category : (activeCategories[0]?.id || 'Groceries')
   );
   const [customCategory, setCustomCategory] = useState<string>('');
   const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
-  const [paymentMethod, setPaymentMethod] = useState<string>(initialData ? initialData.paymentMethod : 'gpay');
+  const [paymentMethod, setPaymentMethod] = useState<string>(
+    initialData ? initialData.paymentMethod : (activePaymentMethods[0]?.id || 'gpay')
+  );
+  const [customPaymentMethod, setCustomPaymentMethod] = useState<string>('');
+  const [isCustomPaymentMethod, setIsCustomPaymentMethod] = useState<boolean>(false);
   const [description, setDescription] = useState<string>(initialData ? initialData.description : '');
   const [splitType, setSplitType] = useState<SplitType>(initialData ? initialData.splitType : 'common');
   const [paidBy, setPaidBy] = useState<string>(initialData ? initialData.paidBy : (members[0]?.id || 'm1'));
@@ -52,7 +61,11 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
       setIsCustomCategory(true);
       setCustomCategory(initialData.category);
     }
-  }, [initialData, activeCategories]);
+    if (initialData && !activePaymentMethods.some((pm) => pm.id === initialData.paymentMethod)) {
+      setIsCustomPaymentMethod(true);
+      setCustomPaymentMethod(initialData.paymentMethod);
+    }
+  }, [initialData, activeCategories, activePaymentMethods]);
 
   const handleAmountPreset = (addValue: number) => {
     const current = parseFloat(amount) || 0;
@@ -79,6 +92,14 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
       return;
     }
 
+    const finalPaymentMethod = isCustomPaymentMethod
+      ? (customPaymentMethod.trim() || 'Other')
+      : paymentMethod;
+    if (!finalPaymentMethod) {
+      setError('Please select or specify a payment method');
+      return;
+    }
+
     setError(null);
     setIsSubmitting(true);
 
@@ -95,7 +116,7 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
         householdId,
         amount: Math.round(numAmount * 100) / 100,
         category: finalCategory,
-        paymentMethod,
+        paymentMethod: finalPaymentMethod,
         description: description.trim() || `${finalCategory} expense`,
         splitType,
         paidBy,
@@ -225,29 +246,61 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
 
           {/* Payment Method Selector */}
           <div className="space-y-1.5">
-            <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Payment Mode
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {PAYMENT_METHODS.map((pm) => {
-                const isSelected = paymentMethod === pm.id;
-                return (
+            <div className="flex items-center justify-between">
+              <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Payment Mode
+              </span>
+              <div className="flex items-center gap-2">
+                {onOpenPaymentMethodManager && (
                   <button
-                    key={pm.id}
                     type="button"
-                    onClick={() => setPaymentMethod(pm.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition cursor-pointer active:scale-95 ${
-                      isSelected
-                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold shadow-xs'
-                        : 'bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700'
-                    }`}
+                    onClick={onOpenPaymentMethodManager}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                   >
-                    <span>{pm.icon}</span>
-                    <span>{pm.label}</span>
+                    <Settings2 className="w-3 h-3" />
+                    <span>Manage</span>
                   </button>
-                );
-              })}
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsCustomPaymentMethod(!isCustomPaymentMethod)}
+                  className="text-xs font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                >
+                  {isCustomPaymentMethod ? 'Use standard' : '+ Custom mode'}
+                </button>
+              </div>
             </div>
+
+            {isCustomPaymentMethod ? (
+              <input
+                type="text"
+                placeholder="Enter custom payment method (e.g. CRED, Kotak Card, Cash)"
+                value={customPaymentMethod}
+                onChange={(e) => setCustomPaymentMethod(e.target.value)}
+                className="w-full px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 dark:text-slate-100"
+              />
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {activePaymentMethods.map((pm) => {
+                  const isSelected = paymentMethod === pm.id;
+                  return (
+                    <button
+                      key={pm.id}
+                      type="button"
+                      onClick={() => setPaymentMethod(pm.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition cursor-pointer active:scale-95 ${
+                        isSelected
+                          ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <span>{pm.icon}</span>
+                      <span>{pm.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

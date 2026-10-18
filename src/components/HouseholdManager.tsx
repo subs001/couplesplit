@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Household, Member, CURRENCIES, CategoryInfo, CATEGORIES } from '../types';
+import { Household, Member, CURRENCIES, CategoryInfo, CATEGORIES, PaymentMethodInfo, PAYMENT_METHODS } from '../types';
 import { 
   Share2, 
   Copy, 
@@ -11,7 +11,8 @@ import {
   Edit2,
   Layers,
   Settings2,
-  Palette
+  Palette,
+  CreditCard
 } from 'lucide-react';
 import { THEMES } from '../theme';
 
@@ -19,11 +20,13 @@ interface HouseholdManagerProps {
   household: Household;
   currency: string;
   categories?: CategoryInfo[];
+  paymentMethods?: PaymentMethodInfo[];
   googleDriveSyncNode?: React.ReactNode;
   currentTheme?: string;
   onUpdateHousehold: (updated: Partial<Household>) => Promise<void>;
   onSwitchHousehold: (code: string) => void;
   onOpenCategoryManager?: () => void;
+  onOpenPaymentMethodManager?: () => void;
   onOpenThemeSelector?: () => void;
 }
 
@@ -31,14 +34,17 @@ export const HouseholdManager: React.FC<HouseholdManagerProps> = ({
   household,
   currency,
   categories,
+  paymentMethods,
   googleDriveSyncNode,
   currentTheme,
   onUpdateHousehold,
   onSwitchHousehold,
   onOpenCategoryManager,
+  onOpenPaymentMethodManager,
   onOpenThemeSelector,
 }) => {
   const activeCategories = categories && categories.length > 0 ? categories : (household.categories || CATEGORIES);
+  const activePaymentMethods = paymentMethods && paymentMethods.length > 0 ? paymentMethods : (household.paymentMethods || PAYMENT_METHODS);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [newHouseholdCode, setNewHouseholdCode] = useState('');
@@ -203,6 +209,69 @@ export const HouseholdManager: React.FC<HouseholdManagerProps> = ({
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Categories & Payment Methods Management Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Custom Categories Card */}
+        <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3 flex flex-col justify-between">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <Layers className="w-4 h-4" />
+                <span>Categories</span>
+              </span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                {activeCategories.length} active
+              </span>
+            </div>
+            <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+              Household Expense Categories
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Add new categories, customize emoji badges, reorder, or rename existing categories across both devices.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpenCategoryManager}
+            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-2xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+            <span>Manage Categories</span>
+          </button>
+        </div>
+
+        {/* Payment Modes Card */}
+        <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3 flex flex-col justify-between">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                <CreditCard className="w-4 h-4" />
+                <span>Payment Modes</span>
+              </span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                {activePaymentMethods.length} active
+              </span>
+            </div>
+            <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+              Cards, UPI &amp; Bank Accounts
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Add personal credit cards, UPI IDs, banks, or cash modes. Edit, reorder, or delete unused modes.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpenPaymentMethodManager}
+            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold rounded-2xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+            <span>Manage Payment Modes</span>
+          </button>
         </div>
       </div>
 

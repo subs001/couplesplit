@@ -11,7 +11,8 @@ import {
   Check, 
   Sparkles,
   Layers,
-  HelpCircle
+  HelpCircle,
+  AlertCircle
 } from 'lucide-react';
 
 interface CategoryManagerModalProps {
@@ -76,6 +77,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   const [updatePastExpenses, setUpdatePastExpenses] = useState(true);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -99,6 +101,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     setFormColor('#10b981');
     setFormBgLight('#ecfdf5');
     setUpdatePastExpenses(true);
+    setErrorMessage(null);
     setIsAddingNew(true);
   };
 
@@ -111,6 +114,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     setFormColor(cat.color || '#10b981');
     setFormBgLight(cat.bgLight || '#ecfdf5');
     setUpdatePastExpenses(true);
+    setErrorMessage(null);
   };
 
   const handleSelectColor = (preset: typeof COLOR_PRESETS[0]) => {
@@ -124,12 +128,13 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     const cleanName = formName.trim();
     if (!cleanName) return;
 
+    setErrorMessage(null);
     setIsSubmitting(true);
     try {
       if (isAddingNew) {
         // Check duplicate
         if (categories.some((c) => c.id.toLowerCase() === cleanName.toLowerCase())) {
-          alert(`A category named "${cleanName}" already exists.`);
+          setErrorMessage(`A category named "${cleanName}" already exists.`);
           setIsSubmitting(false);
           return;
         }
@@ -174,7 +179,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
       }
     } catch (err) {
       console.error(err);
-      alert('Failed to save category. Please try again.');
+      setErrorMessage('Failed to save category. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -206,13 +211,14 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   const handleConfirmDelete = async () => {
     if (!deleteTargetCat) return;
     setIsSubmitting(true);
+    setErrorMessage(null);
     try {
       await onDeleteCategory(deleteTargetCat.id, reassignCategory);
       showToast(`Removed "${deleteTargetCat.label || deleteTargetCat.id}"`);
       setDeleteTargetCat(null);
     } catch (err) {
       console.error(err);
-      alert('Failed to delete category');
+      showToast('Failed to delete category');
     } finally {
       setIsSubmitting(false);
     }
@@ -221,13 +227,14 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   // Reset to default
   const handleConfirmReset = async () => {
     setIsSubmitting(true);
+    setErrorMessage(null);
     try {
       await onResetToDefaults();
       showToast('Reset to default household categories');
       setIsResetConfirmOpen(false);
     } catch (err) {
       console.error(err);
-      alert('Failed to reset categories');
+      showToast('Failed to reset categories');
     } finally {
       setIsSubmitting(false);
     }
@@ -311,6 +318,13 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                   Cancel
                 </button>
               </div>
+
+              {errorMessage && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs rounded-xl border border-rose-200 dark:border-rose-800 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
 
               <form onSubmit={handleSaveForm} className="space-y-4">
                 {/* Name Input */}

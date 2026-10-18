@@ -58,12 +58,20 @@ export interface CategoryInfo {
   bgLight: string;
 }
 
+export interface PaymentMethodInfo {
+  id: string;
+  label: string;
+  icon: string;
+  type?: string;
+}
+
 export interface Household {
   id: string;
   name: string;
   currency: string;
   members: Member[];
   categories?: CategoryInfo[];
+  paymentMethods?: PaymentMethodInfo[];
   createdAt: string;
   updatedAt: string;
 }
@@ -335,14 +343,26 @@ app.put('/api/household/:id', (req, res) => {
   const households = readJsonFile<Record<string, Household>>(HOUSEHOLDS_FILE, {});
   const code = req.params.id.toUpperCase();
   if (!households[code]) {
-    return res.status(404).json({ error: 'Household not found' });
+    // If household does not exist yet on server, create it to prevent 404 errors on mobile
+    households[code] = {
+      id: code,
+      name: 'Our Shared Household',
+      currency: '₹',
+      members: [
+        { id: 'm1', name: 'Shriya', color: '#10b981', avatar: '👩' },
+        { id: 'm2', name: 'Husband', color: '#3b82f6', avatar: '👨' },
+      ],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
   }
 
-  const { name, currency, members, categories } = req.body;
+  const { name, currency, members, categories, paymentMethods } = req.body;
   if (name !== undefined) households[code].name = name;
   if (currency !== undefined) households[code].currency = currency;
   if (members !== undefined) households[code].members = members;
   if (categories !== undefined) households[code].categories = categories;
+  if (paymentMethods !== undefined) households[code].paymentMethods = paymentMethods;
   households[code].updatedAt = new Date().toISOString();
 
   writeJsonFile(HOUSEHOLDS_FILE, households);
@@ -449,6 +469,32 @@ app.post('/api/expenses/batch-update-category', (req, res) => {
   return res.json({ success: true, updatedCount });
 });
 
+// Batch update expense payment method (e.g. when renaming or reassigning payment methods)
+app.post('/api/expenses/batch-update-payment-method', (req, res) => {
+  const { householdId, oldMethod, newMethod } = req.body;
+  if (!householdId || !oldMethod || !newMethod) {
+    return res.status(400).json({ error: 'householdId, oldMethod, and newMethod are required' });
+  }
+
+  const expenses = readJsonFile<Expense[]>(EXPENSES_FILE, []);
+  let updatedCount = 0;
+  const targetHId = householdId.toUpperCase();
+
+  for (const exp of expenses) {
+    if (exp.householdId.toUpperCase() === targetHId && exp.paymentMethod === oldMethod) {
+      exp.paymentMethod = newMethod;
+      exp.updatedAt = new Date().toISOString();
+      updatedCount++;
+    }
+  }
+
+  if (updatedCount > 0) {
+    writeJsonFile(EXPENSES_FILE, expenses);
+  }
+
+  return res.json({ success: true, updatedCount });
+});
+
 // Settlements
 app.get('/api/settlements', (req, res) => {
   const householdId = (req.query.householdId as string)?.toUpperCase() || 'HOME-2026';
@@ -505,6 +551,7 @@ app.post('/api/sync-drive-backup', (req, res) => {
       currency: incomingH.currency || households[code].currency,
       members: incomingH.members || households[code].members,
       categories: incomingH.categories || households[code].categories,
+      paymentMethods: incomingH.paymentMethods || households[code].paymentMethods,
       updatedAt: new Date().toISOString(),
     };
   }

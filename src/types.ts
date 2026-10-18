@@ -5,12 +5,20 @@ export interface Member {
   avatar: string;
 }
 
+export interface PaymentMethodInfo {
+  id: string;
+  label: string;
+  icon: string;
+  type?: string;
+}
+
 export interface Household {
   id: string;
   name: string;
   currency: string;
   members: Member[];
   categories?: CategoryInfo[];
+  paymentMethods?: PaymentMethodInfo[];
   createdAt: string;
   updatedAt: string;
 }

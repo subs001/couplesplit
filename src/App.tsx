@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
-import { Expense, Household, Settlement, Member, CATEGORIES, CategoryInfo } from './types';
+import { Expense, Household, Settlement, Member, CATEGORIES, CategoryInfo, PaymentMethodInfo, PAYMENT_METHODS } from './types';
 import {
   fetchHousehold,
   createOrJoinHousehold,
@@ -13,6 +13,7 @@ import {
   createSettlement,
   syncDriveBackup,
   batchUpdateCategory,
+  batchUpdatePaymentMethod,
 } from './services/api';
 import {
   initGoogleAuth,
@@ -26,6 +27,7 @@ import { SplitSettlementView } from './components/SplitSettlementView';
 import { ExpensesList } from './components/ExpensesList';
 import { HouseholdManager } from './components/HouseholdManager';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
+import { PaymentMethodManagerModal } from './components/PaymentMethodManagerModal';
 import { ThemeSelectorModal } from './components/ThemeSelectorModal';
 import { GoogleDriveSync } from './components/GoogleDriveSync';
 import { PWAInstallButton } from './components/PWAInstallButton';
@@ -98,6 +100,7 @@ export default function App() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [showDriveModal, setShowDriveModal] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+  const [isPaymentMethodManagerOpen, setIsPaymentMethodManagerOpen] = useState(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [theme, setTheme] = useState<AppThemeId>(() => getSavedTheme());
   const [driveBannerNotice, setDriveBannerNotice] = useState<string | null>(null);
@@ -310,6 +313,31 @@ export default function App() {
 
   // Add / Edit expense handler
   const handleSaveExpense = async (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => {
+    // 1. Auto-save new category to household if not yet in categories list
+    if (data.category && !activeCategories.some((c) => c.id.toLowerCase() === data.category.toLowerCase())) {
+      const newCat: CategoryInfo = {
+        id: data.category,
+        label: data.category,
+        icon: '🏷️',
+        color: '#10b981',
+        bgLight: '#ecfdf5',
+      };
+      const nextCategories = [...activeCategories, newCat];
+      handleSaveCategories(nextCategories);
+    }
+
+    // 2. Auto-save new payment mode to household if not yet in paymentMethods list
+    if (data.paymentMethod && !activePaymentMethods.some((pm) => pm.id.toLowerCase() === data.paymentMethod.toLowerCase())) {
+      const newPm: PaymentMethodInfo = {
+        id: data.paymentMethod,
+        label: data.paymentMethod,
+        icon: '💳',
+        type: 'Other',
+      };
+      const nextMethods = [...activePaymentMethods, newPm];
+      handleSavePaymentMethods(nextMethods);
+    }
+
     if (editingExpense) {
       const updated = await updateExpense(editingExpense.id, data);
       setExpenses((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
@@ -427,8 +455,18 @@ export default function App() {
     renameMap?: { oldId: string; newId: string; updatePastExpenses: boolean }
   ) => {
     if (!household) return;
-    const res = await updateHousehold(household.id, { categories: updatedCategories });
-    setHousehold(res);
+    // Immediate optimistic update and local cache so new categories are never lost on phone
+    const optimisticHousehold = { ...household, categories: updatedCategories };
+    setHousehold(optimisticHousehold);
+    localStorage.setItem(`couplesplit_cache_household_${householdId}`, JSON.stringify(optimisticHousehold));
+
+    try {
+      const res = await updateHousehold(household.id, { categories: updatedCategories });
+      setHousehold(res);
+      localStorage.setItem(`couplesplit_cache_household_${householdId}`, JSON.stringify(res));
+    } catch (err) {
+      console.warn('Failed to sync categories to server, kept in local storage:', err);
+    }
 
     if (renameMap && renameMap.oldId !== renameMap.newId && renameMap.updatePastExpenses) {
       try {
@@ -452,8 +490,7 @@ export default function App() {
   const handleDeleteCategory = async (catId: string, reassignToCatId?: string) => {
     if (!household) return;
     const remaining = activeCategories.filter((c) => c.id !== catId);
-    const res = await updateHousehold(household.id, { categories: remaining });
-    setHousehold(res);
+    await handleSaveCategories(remaining);
 
     if (reassignToCatId && reassignToCatId !== catId) {
       try {
@@ -476,9 +513,77 @@ export default function App() {
   // Handle Reset Categories to Default
   const handleResetCategories = async () => {
     if (!household) return;
-    const res = await updateHousehold(household.id, { categories: CATEGORIES });
-    setHousehold(res);
+    await handleSaveCategories(CATEGORIES);
+  };
+
+  // Active payment methods: uses household.paymentMethods if configured, otherwise default PAYMENT_METHODS
+  const activePaymentMethods: PaymentMethodInfo[] =
+    household?.paymentMethods && household.paymentMethods.length > 0 ? household.paymentMethods : PAYMENT_METHODS;
+
+  // Handle Save Payment Methods (Add, Edit, Reorder)
+  const handleSavePaymentMethods = async (
+    updatedMethods: PaymentMethodInfo[],
+    renameMap?: { oldId: string; newId: string; updatePastExpenses: boolean }
+  ) => {
+    if (!household) return;
+    const optimisticHousehold = { ...household, paymentMethods: updatedMethods };
+    setHousehold(optimisticHousehold);
+    localStorage.setItem(`couplesplit_cache_household_${householdId}`, JSON.stringify(optimisticHousehold));
+
+    try {
+      const res = await updateHousehold(household.id, { paymentMethods: updatedMethods });
+      setHousehold(res);
+      localStorage.setItem(`couplesplit_cache_household_${householdId}`, JSON.stringify(res));
+    } catch (err) {
+      console.warn('Failed to sync payment methods to server, kept in local storage:', err);
+    }
+
+    if (renameMap && renameMap.oldId !== renameMap.newId && renameMap.updatePastExpenses) {
+      try {
+        await batchUpdatePaymentMethod(household.id, renameMap.oldId, renameMap.newId);
+        setExpenses((prev) =>
+          prev.map((e) =>
+            e.paymentMethod === renameMap.oldId
+              ? { ...e, paymentMethod: renameMap.newId, updatedAt: new Date().toISOString() }
+              : e
+          )
+        );
+      } catch (err) {
+        console.warn('Batch payment method update error:', err);
+      }
+    }
+
     triggerAutoBackup();
+  };
+
+  // Handle Delete Payment Method
+  const handleDeletePaymentMethod = async (methodId: string, reassignToMethodId?: string) => {
+    if (!household) return;
+    const remaining = activePaymentMethods.filter((pm) => pm.id !== methodId);
+    await handleSavePaymentMethods(remaining);
+
+    if (reassignToMethodId && reassignToMethodId !== methodId) {
+      try {
+        await batchUpdatePaymentMethod(household.id, methodId, reassignToMethodId);
+        setExpenses((prev) =>
+          prev.map((e) =>
+            e.paymentMethod === methodId
+              ? { ...e, paymentMethod: reassignToMethodId, updatedAt: new Date().toISOString() }
+              : e
+          )
+        );
+      } catch (err) {
+        console.warn('Batch payment method reassign error:', err);
+      }
+    }
+
+    triggerAutoBackup();
+  };
+
+  // Handle Reset Payment Methods to Default
+  const handleResetPaymentMethods = async () => {
+    if (!household) return;
+    await handleSavePaymentMethods(PAYMENT_METHODS);
   };
 
   const handleShareQuickLink = () => {
@@ -761,7 +866,9 @@ export default function App() {
                   currency={currency}
                   members={members}
                   categories={activeCategories}
+                  paymentMethods={activePaymentMethods}
                   onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
+                  onOpenPaymentMethodManager={() => setIsPaymentMethodManagerOpen(true)}
                   initialData={editingExpense}
                   onSave={handleSaveExpense}
                   onDelete={editingExpense ? handleDeleteExpense : undefined}
@@ -830,11 +937,13 @@ export default function App() {
                   household={household}
                   currency={currency}
                   categories={activeCategories}
+                  paymentMethods={activePaymentMethods}
                   googleDriveSyncNode={googleDriveNode}
                   currentTheme={theme}
                   onUpdateHousehold={handleUpdateHousehold}
                   onSwitchHousehold={handleSwitchHousehold}
                   onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
+                  onOpenPaymentMethodManager={() => setIsPaymentMethodManagerOpen(true)}
                   onOpenThemeSelector={() => setIsThemeModalOpen(true)}
                 />
               </div>
@@ -854,7 +963,7 @@ export default function App() {
               </span>
               <button
                 onClick={() => setShowDriveModal(false)}
-                className="p-1 rounded-full text-white/70 hover:text-white hover:bg-white/10"
+                className="p-1 rounded-full text-white/70 hover:text-white hover:bg-white/10 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -877,6 +986,17 @@ export default function App() {
         onResetToDefaults={handleResetCategories}
       />
 
+      {/* Household Payment Methods Manager Modal */}
+      <PaymentMethodManagerModal
+        isOpen={isPaymentMethodManagerOpen}
+        onClose={() => setIsPaymentMethodManagerOpen(false)}
+        paymentMethods={activePaymentMethods}
+        expenses={expenses}
+        onSavePaymentMethods={handleSavePaymentMethods}
+        onDeletePaymentMethod={handleDeletePaymentMethod}
+        onResetToDefaults={handleResetPaymentMethods}
+      />
+
       {/* App Theme Selector Modal */}
       <ThemeSelectorModal
         isOpen={isThemeModalOpen}
@@ -896,6 +1016,7 @@ export default function App() {
         }}
         onOpenThemeModal={() => setIsThemeModalOpen(true)}
         onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
+        onOpenPaymentMethodManager={() => setIsPaymentMethodManagerOpen(true)}
         onOpenDriveModal={() => setShowDriveModal(true)}
         onDownloadCSV={handleDownloadCSV}
         onDownloadJSON={handleDownloadJSON}
@@ -903,6 +1024,7 @@ export default function App() {
         currentTheme={theme}
         householdId={householdId}
         categoryCount={activeCategories.length}
+        paymentMethodCount={activePaymentMethods.length}
         expenseCount={expenses.length}
         members={members}
         onShareLink={handleShareQuickLink}

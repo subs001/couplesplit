@@ -132,3 +132,19 @@ export async function batchUpdateCategory(
   }
   return res.json();
 }
+
+export async function batchUpdatePaymentMethod(
+  householdId: string,
+  oldMethod: string,
+  newMethod: string
+): Promise<{ success: boolean; updatedCount: number }> {
+  const res = await fetch(`${API_BASE}/expenses/batch-update-payment-method`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ householdId, oldMethod, newMethod }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to batch update payment method: ${res.statusText}`);
+  }
+  return res.json();
+}
