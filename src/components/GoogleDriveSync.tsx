@@ -103,6 +103,12 @@ export const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({
   const handleManualBackup = async () => {
     setError(null);
     try {
+      if (!accessToken) {
+        const res = await signInWithGoogle();
+        if (res) {
+          onAuthSuccess(res.user, res.accessToken);
+        }
+      }
       await onBackupNow();
       setSuccessMsg('Backup to Google Drive succeeded!');
       setTimeout(() => setSuccessMsg(null), 3000);
@@ -119,6 +125,12 @@ export const GoogleDriveSync: React.FC<GoogleDriveSyncProps> = ({
     if (!confirmed) return;
 
     try {
+      if (!accessToken) {
+        const res = await signInWithGoogle();
+        if (res) {
+          onAuthSuccess(res.user, res.accessToken);
+        }
+      }
       await onRestoreFromDrive();
       setSuccessMsg('Successfully synced and updated from Google Drive!');
       setTimeout(() => setSuccessMsg(null), 3500);

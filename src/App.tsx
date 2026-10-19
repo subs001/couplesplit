@@ -19,6 +19,7 @@ import {
   initGoogleAuth,
   uploadBackupToDrive,
   downloadBackupFromDrive,
+  getStoredAccessToken,
   DriveFileMeta,
 } from './services/googleDrive';
 import { AddExpenseForm } from './components/AddExpenseForm';
@@ -219,12 +220,17 @@ export default function App() {
   // --- Google Drive Backup & Sync Handlers ---
   const performDriveBackup = useCallback(
     async (silent = false) => {
-      if (!googleAccessToken || !household) return;
+      let token = googleAccessToken;
+      if (!token) {
+        token = getStoredAccessToken();
+        if (token) setGoogleAccessToken(token);
+      }
+      if (!token || !household) return;
       if (!silent) setIsBackingUp(true);
 
       try {
         const meta = await uploadBackupToDrive(
-          googleAccessToken,
+          token,
           household,
           expenses,
           settlements

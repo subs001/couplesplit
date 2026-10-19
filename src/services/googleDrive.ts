@@ -5,6 +5,8 @@ import {
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
   User,
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -17,6 +19,11 @@ export const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
+
+// Ensure persistent login across browser sessions and refreshes
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn('Firebase setPersistence notice:', err);
+});
 
 const provider = new GoogleAuthProvider();
 SCOPES.forEach((scope) => provider.addScope(scope));
@@ -117,7 +124,50 @@ export function parseFirebaseAuthError(error: unknown): ParsedAuthError {
   };
 }
 
-// In-memory cache for access token (never persisted to localStorage/sessionStorage as mandated)
+// LocalStorage keys for persisted Google session
+export const TOKEN_STORAGE_KEY = 'couplesplit_google_drive_token';
+export const TOKEN_TIMESTAMP_KEY = 'couplesplit_google_drive_token_time';
+// Persist token for up to 7 days
+export const TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function getStoredAccessToken(): string | null {
+  try {
+    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+    const timeStr = localStorage.getItem(TOKEN_TIMESTAMP_KEY);
+    if (!token) return null;
+    if (timeStr) {
+      const age = Date.now() - parseInt(timeStr, 10);
+      if (age > TOKEN_MAX_AGE_MS) {
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        localStorage.removeItem(TOKEN_TIMESTAMP_KEY);
+        return null;
+      }
+    }
+    return token;
+  } catch {
+    return null;
+  }
+}
+
+export function storeAccessToken(token: string) {
+  try {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    localStorage.setItem(TOKEN_TIMESTAMP_KEY, String(Date.now()));
+  } catch (err) {
+    console.warn('Could not store access token in localStorage:', err);
+  }
+}
+
+export function clearStoredAccessToken() {
+  try {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(TOKEN_TIMESTAMP_KEY);
+  } catch (err) {
+    console.warn('Could not clear access token from localStorage:', err);
+  }
+}
+
+// In-memory cache for access token
 let cachedAccessToken: string | null = null;
 let isSigningIn = false;
 
@@ -137,21 +187,23 @@ export interface DriveBackupPayload {
   settlements: Settlement[];
 }
 
-// Auth State Listener
+// Auth State Listener with Long-Term Persistence
 export const initGoogleAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        cachedAccessToken = null;
-        if (onAuthFailure) onAuthFailure();
+      if (!cachedAccessToken) {
+        cachedAccessToken = getStoredAccessToken();
+      }
+      // Keep user signed in across reloads/restarts!
+      if (onAuthSuccess) {
+        onAuthSuccess(user, cachedAccessToken || '');
       }
     } else {
       cachedAccessToken = null;
+      clearStoredAccessToken();
       if (onAuthFailure) onAuthFailure();
     }
   });
@@ -161,6 +213,12 @@ export const initGoogleAuth = (
 export const signInWithGoogle = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
     isSigningIn = true;
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+    } catch (persErr) {
+      console.warn('Firebase setPersistence error:', persErr);
+    }
+
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
@@ -168,6 +226,7 @@ export const signInWithGoogle = async (): Promise<{ user: User; accessToken: str
     }
 
     cachedAccessToken = credential.accessToken;
+    storeAccessToken(cachedAccessToken);
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error) {
     console.error('Google Sign In Error:', error);
@@ -178,12 +237,19 @@ export const signInWithGoogle = async (): Promise<{ user: User; accessToken: str
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
+  if (!cachedAccessToken) {
+    cachedAccessToken = getStoredAccessToken();
+  }
   return cachedAccessToken;
 };
 
 export const signOutGoogle = async () => {
-  await firebaseSignOut(auth);
-  cachedAccessToken = null;
+  try {
+    await firebaseSignOut(auth);
+  } finally {
+    cachedAccessToken = null;
+    clearStoredAccessToken();
+  }
 };
 
 // Find or create dedicated folder "CoupleSplit Backups" in Google Drive
