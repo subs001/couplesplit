@@ -162,6 +162,19 @@ export default function App() {
         } catch {
           currentHousehold = await createOrJoinHousehold({ id: householdId });
         }
+
+        // Defensive protection against overwriting locally saved categories or payment methods on mobile
+        const cachedHRaw = localStorage.getItem(`couplesplit_cache_household_${householdId}`);
+        const cachedH = cachedHRaw ? JSON.parse(cachedHRaw) : null;
+        if ((!currentHousehold.categories || currentHousehold.categories.length === 0) && cachedH?.categories?.length) {
+          currentHousehold.categories = cachedH.categories;
+          updateHousehold(householdId, { categories: cachedH.categories }).catch(() => {});
+        }
+        if ((!currentHousehold.paymentMethods || currentHousehold.paymentMethods.length === 0) && cachedH?.paymentMethods?.length) {
+          currentHousehold.paymentMethods = cachedH.paymentMethods;
+          updateHousehold(householdId, { paymentMethods: cachedH.paymentMethods }).catch(() => {});
+        }
+
         setHousehold(currentHousehold);
 
         const [loadedExpenses, loadedSettlements] = await Promise.all([
@@ -454,23 +467,33 @@ export default function App() {
     updatedCategories: CategoryInfo[],
     renameMap?: { oldId: string; newId: string; updatePastExpenses: boolean }
   ) => {
-    if (!household) return;
-    // Immediate optimistic update and local cache so new categories are never lost on phone
-    const optimisticHousehold = { ...household, categories: updatedCategories };
+    const targetId = household?.id || householdId || 'HOME-2026';
+    const optimisticHousehold: Household = household
+      ? { ...household, categories: updatedCategories }
+      : {
+          id: targetId,
+          name: 'Our Shared Home',
+          currency: currency || '₹',
+          members,
+          categories: updatedCategories,
+          paymentMethods: activePaymentMethods,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
     setHousehold(optimisticHousehold);
-    localStorage.setItem(`couplesplit_cache_household_${householdId}`, JSON.stringify(optimisticHousehold));
+    localStorage.setItem(`couplesplit_cache_household_${targetId}`, JSON.stringify(optimisticHousehold));
 
     try {
-      const res = await updateHousehold(household.id, { categories: updatedCategories });
+      const res = await updateHousehold(targetId, { categories: updatedCategories });
       setHousehold(res);
-      localStorage.setItem(`couplesplit_cache_household_${householdId}`, JSON.stringify(res));
+      localStorage.setItem(`couplesplit_cache_household_${targetId}`, JSON.stringify(res));
     } catch (err) {
-      console.warn('Failed to sync categories to server, kept in local storage:', err);
+      console.warn('Failed to sync categories to server, kept safely in phone storage:', err);
     }
 
     if (renameMap && renameMap.oldId !== renameMap.newId && renameMap.updatePastExpenses) {
       try {
-        await batchUpdateCategory(household.id, renameMap.oldId, renameMap.newId);
+        await batchUpdateCategory(targetId, renameMap.oldId, renameMap.newId);
         setExpenses((prev) =>
           prev.map((e) =>
             e.category === renameMap.oldId
@@ -486,15 +509,23 @@ export default function App() {
     triggerAutoBackup();
   };
 
+  // Quick helper to add a custom category from anywhere (e.g. AddExpenseForm)
+  const handleAddCustomCategory = async (newCat: CategoryInfo) => {
+    const existing = activeCategories.find((c) => c.id.toLowerCase() === newCat.id.toLowerCase());
+    if (existing) return;
+    const updated = [...activeCategories, newCat];
+    await handleSaveCategories(updated);
+  };
+
   // Handle Delete Category
   const handleDeleteCategory = async (catId: string, reassignToCatId?: string) => {
-    if (!household) return;
+    const targetId = household?.id || householdId || 'HOME-2026';
     const remaining = activeCategories.filter((c) => c.id !== catId);
     await handleSaveCategories(remaining);
 
     if (reassignToCatId && reassignToCatId !== catId) {
       try {
-        await batchUpdateCategory(household.id, catId, reassignToCatId);
+        await batchUpdateCategory(targetId, catId, reassignToCatId);
         setExpenses((prev) =>
           prev.map((e) =>
             e.category === catId
@@ -512,7 +543,6 @@ export default function App() {
 
   // Handle Reset Categories to Default
   const handleResetCategories = async () => {
-    if (!household) return;
     await handleSaveCategories(CATEGORIES);
   };
 
@@ -525,22 +555,33 @@ export default function App() {
     updatedMethods: PaymentMethodInfo[],
     renameMap?: { oldId: string; newId: string; updatePastExpenses: boolean }
   ) => {
-    if (!household) return;
-    const optimisticHousehold = { ...household, paymentMethods: updatedMethods };
+    const targetId = household?.id || householdId || 'HOME-2026';
+    const optimisticHousehold: Household = household
+      ? { ...household, paymentMethods: updatedMethods }
+      : {
+          id: targetId,
+          name: 'Our Shared Home',
+          currency: currency || '₹',
+          members,
+          categories: activeCategories,
+          paymentMethods: updatedMethods,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
     setHousehold(optimisticHousehold);
-    localStorage.setItem(`couplesplit_cache_household_${householdId}`, JSON.stringify(optimisticHousehold));
+    localStorage.setItem(`couplesplit_cache_household_${targetId}`, JSON.stringify(optimisticHousehold));
 
     try {
-      const res = await updateHousehold(household.id, { paymentMethods: updatedMethods });
+      const res = await updateHousehold(targetId, { paymentMethods: updatedMethods });
       setHousehold(res);
-      localStorage.setItem(`couplesplit_cache_household_${householdId}`, JSON.stringify(res));
+      localStorage.setItem(`couplesplit_cache_household_${targetId}`, JSON.stringify(res));
     } catch (err) {
-      console.warn('Failed to sync payment methods to server, kept in local storage:', err);
+      console.warn('Failed to sync payment methods to server, kept safely in phone storage:', err);
     }
 
     if (renameMap && renameMap.oldId !== renameMap.newId && renameMap.updatePastExpenses) {
       try {
-        await batchUpdatePaymentMethod(household.id, renameMap.oldId, renameMap.newId);
+        await batchUpdatePaymentMethod(targetId, renameMap.oldId, renameMap.newId);
         setExpenses((prev) =>
           prev.map((e) =>
             e.paymentMethod === renameMap.oldId
@@ -556,15 +597,23 @@ export default function App() {
     triggerAutoBackup();
   };
 
+  // Quick helper to add a custom payment method from anywhere (e.g. AddExpenseForm)
+  const handleAddCustomPaymentMethod = async (newMethod: PaymentMethodInfo) => {
+    const existing = activePaymentMethods.find((pm) => pm.id.toLowerCase() === newMethod.id.toLowerCase());
+    if (existing) return;
+    const updated = [...activePaymentMethods, newMethod];
+    await handleSavePaymentMethods(updated);
+  };
+
   // Handle Delete Payment Method
   const handleDeletePaymentMethod = async (methodId: string, reassignToMethodId?: string) => {
-    if (!household) return;
+    const targetId = household?.id || householdId || 'HOME-2026';
     const remaining = activePaymentMethods.filter((pm) => pm.id !== methodId);
     await handleSavePaymentMethods(remaining);
 
     if (reassignToMethodId && reassignToMethodId !== methodId) {
       try {
-        await batchUpdatePaymentMethod(household.id, methodId, reassignToMethodId);
+        await batchUpdatePaymentMethod(targetId, methodId, reassignToMethodId);
         setExpenses((prev) =>
           prev.map((e) =>
             e.paymentMethod === methodId
@@ -582,7 +631,6 @@ export default function App() {
 
   // Handle Reset Payment Methods to Default
   const handleResetPaymentMethods = async () => {
-    if (!household) return;
     await handleSavePaymentMethods(PAYMENT_METHODS);
   };
 
@@ -869,6 +917,8 @@ export default function App() {
                   paymentMethods={activePaymentMethods}
                   onOpenCategoryManager={() => setIsCategoryManagerOpen(true)}
                   onOpenPaymentMethodManager={() => setIsPaymentMethodManagerOpen(true)}
+                  onAddCustomCategory={handleAddCustomCategory}
+                  onAddCustomPaymentMethod={handleAddCustomPaymentMethod}
                   initialData={editingExpense}
                   onSave={handleSaveExpense}
                   onDelete={editingExpense ? handleDeleteExpense : undefined}

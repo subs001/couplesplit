@@ -10,6 +10,8 @@ interface AddExpenseFormProps {
   paymentMethods?: PaymentMethodInfo[];
   onOpenCategoryManager?: () => void;
   onOpenPaymentMethodManager?: () => void;
+  onAddCustomCategory?: (category: CategoryInfo) => Promise<void>;
+  onAddCustomPaymentMethod?: (paymentMethod: PaymentMethodInfo) => Promise<void>;
   initialData?: Expense | null;
   onSave: (expenseData: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
@@ -24,6 +26,8 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
   paymentMethods,
   onOpenCategoryManager,
   onOpenPaymentMethodManager,
+  onAddCustomCategory,
+  onAddCustomPaymentMethod,
   initialData,
   onSave,
   onDelete,
@@ -37,11 +41,13 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
   );
   const [customCategory, setCustomCategory] = useState<string>('');
   const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
+  const [saveCategoryForFuture, setSaveCategoryForFuture] = useState<boolean>(true);
   const [paymentMethod, setPaymentMethod] = useState<string>(
     initialData ? initialData.paymentMethod : (activePaymentMethods[0]?.id || 'gpay')
   );
   const [customPaymentMethod, setCustomPaymentMethod] = useState<string>('');
   const [isCustomPaymentMethod, setIsCustomPaymentMethod] = useState<boolean>(false);
+  const [savePaymentMethodForFuture, setSavePaymentMethodForFuture] = useState<boolean>(true);
   const [description, setDescription] = useState<string>(initialData ? initialData.description : '');
   const [splitType, setSplitType] = useState<SplitType>(initialData ? initialData.splitType : 'common');
   const [paidBy, setPaidBy] = useState<string>(initialData ? initialData.paidBy : (members[0]?.id || 'm1'));
@@ -98,6 +104,35 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
     if (!finalPaymentMethod) {
       setError('Please select or specify a payment method');
       return;
+    }
+
+    // Auto-save new custom category for future use if toggle is checked
+    if (isCustomCategory && saveCategoryForFuture && customCategory.trim() && onAddCustomCategory) {
+      const cleanCat = customCategory.trim();
+      const existing = activeCategories.find((c) => c.id.toLowerCase() === cleanCat.toLowerCase());
+      if (!existing) {
+        onAddCustomCategory({
+          id: cleanCat,
+          label: cleanCat,
+          icon: '🏷️',
+          color: '#10b981',
+          bgLight: '#ecfdf5',
+        }).catch((err) => console.warn('Could not auto-save category:', err));
+      }
+    }
+
+    // Auto-save new custom payment method for future use if toggle is checked
+    if (isCustomPaymentMethod && savePaymentMethodForFuture && customPaymentMethod.trim() && onAddCustomPaymentMethod) {
+      const cleanPm = customPaymentMethod.trim();
+      const existing = activePaymentMethods.find((pm) => pm.id.toLowerCase() === cleanPm.toLowerCase());
+      if (!existing) {
+        onAddCustomPaymentMethod({
+          id: cleanPm,
+          label: cleanPm,
+          icon: '💳',
+          type: 'Card',
+        }).catch((err) => console.warn('Could not auto-save payment method:', err));
+      }
     }
 
     setError(null);
@@ -272,15 +307,26 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
             </div>
 
             {isCustomPaymentMethod ? (
-              <input
-                type="text"
-                placeholder="Enter custom payment method (e.g. CRED, Kotak Card, Cash)"
-                value={customPaymentMethod}
-                onChange={(e) => setCustomPaymentMethod(e.target.value)}
-                className="w-full px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 dark:text-slate-100"
-              />
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Enter custom payment method (e.g. CRED, Kotak Card, Cash)"
+                  value={customPaymentMethod}
+                  onChange={(e) => setCustomPaymentMethod(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 dark:text-slate-100"
+                />
+                <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={savePaymentMethodForFuture}
+                    onChange={(e) => setSavePaymentMethodForFuture(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span>Save "{customPaymentMethod.trim() || 'this mode'}" as a permanent payment option</span>
+                </label>
+              </div>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 items-center">
                 {activePaymentMethods.map((pm) => {
                   const isSelected = paymentMethod === pm.id;
                   return (
@@ -299,6 +345,17 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
                     </button>
                   );
                 })}
+                {onOpenPaymentMethodManager && (
+                  <button
+                    type="button"
+                    onClick={onOpenPaymentMethodManager}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border border-dashed border-blue-400 dark:border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition cursor-pointer"
+                    title="Add or manage payment methods"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Add Mode</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -332,13 +389,24 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
           </div>
 
           {isCustomCategory ? (
-            <input
-              type="text"
-              placeholder="Enter custom category name (e.g. Gift, Pet food, Books)"
-              value={customCategory}
-              onChange={(e) => setCustomCategory(e.target.value)}
-              className="w-full px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900 dark:text-slate-100"
-            />
+            <div className="space-y-2">
+              <input
+                type="text"
+                placeholder="Enter custom category name (e.g. Gift, Pet food, Books)"
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+                className="w-full px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-900 dark:text-slate-100"
+              />
+              <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={saveCategoryForFuture}
+                  onChange={(e) => setSaveCategoryForFuture(e.target.checked)}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                />
+                <span>Save "{customCategory.trim() || 'this category'}" for all future expenses &amp; partners</span>
+              </label>
+            </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {activeCategories.map((cat) => {
@@ -359,6 +427,17 @@ export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
                   </button>
                 );
               })}
+              {onOpenCategoryManager && (
+                <button
+                  type="button"
+                  onClick={onOpenCategoryManager}
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-2xl border border-dashed border-emerald-400 dark:border-emerald-500 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition font-semibold text-xs cursor-pointer min-h-[46px]"
+                  title="Add or manage categories"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>Add Category</span>
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -104,6 +104,39 @@ export interface Settlement {
   createdAt: string;
 }
 
+export const DEFAULT_CATEGORIES: CategoryInfo[] = [
+  { id: 'Groceries', label: 'Groceries', icon: '🛒', color: '#10b981', bgLight: '#ecfdf5' },
+  { id: 'Dining/Food', label: 'Dining/Food', icon: '🍽️', color: '#f59e0b', bgLight: '#fffbeb' },
+  { id: 'Rent', label: 'Rent', icon: '🏠', color: '#6366f1', bgLight: '#eef2ff' },
+  { id: 'Maintenance', label: 'Maintenance', icon: '🛠️', color: '#0284c7', bgLight: '#f0f9ff' },
+  { id: 'Electricity', label: 'Electricity', icon: '⚡', color: '#eab308', bgLight: '#fefce8' },
+  { id: 'Wifi', label: 'Wifi', icon: '📶', color: '#06b6d4', bgLight: '#ecfeff' },
+  { id: 'RO', label: 'RO', icon: '💧', color: '#3b82f6', bgLight: '#eff6ff' },
+  { id: 'Fuel', label: 'Fuel', icon: '⛽', color: '#ea580c', bgLight: '#fff7ed' },
+  { id: 'Transport', label: 'Transport', icon: '🚗', color: '#14b8a6', bgLight: '#f0fdfa' },
+  { id: 'Pancake', label: 'Pancake', icon: '🥞', color: '#d97706', bgLight: '#fffbeb' },
+  { id: 'Netflix', label: 'Netflix', icon: '🍿', color: '#e11d48', bgLight: '#fff1f2' },
+  { id: 'Mobile bills', label: 'Mobile bills', icon: '📱', color: '#8b5cf6', bgLight: '#f5f3ff' },
+  { id: 'Vacations', label: 'Vacations', icon: '🏖️', color: '#0ea5e9', bgLight: '#f0f9ff' },
+  { id: 'Maid', label: 'Maid', icon: '🧹', color: '#10b981', bgLight: '#f0fdf4' },
+  { id: 'Entertainement', label: 'Entertainement', icon: '🎬', color: '#a855f7', bgLight: '#faf5ff' },
+  { id: 'Shopping', label: 'Shopping', icon: '🛍️', color: '#ec4899', bgLight: '#fdf2f8' },
+  { id: 'House things shopping', label: 'House things shopping', icon: '🛋️', color: '#84cc16', bgLight: '#f7fee7' },
+];
+
+export const DEFAULT_PAYMENT_METHODS: PaymentMethodInfo[] = [
+  { id: 'gpay', label: 'gpay', icon: '📱', type: 'UPI' },
+  { id: 'Axis Card', label: 'Axis Card', icon: '💳', type: 'Card' },
+  { id: 'HSBC card', label: 'HSBC card', icon: '💳', type: 'Card' },
+  { id: 'Swiggy card', label: 'Swiggy card', icon: '🍔', type: 'Card' },
+  { id: 'amazon pay card', label: 'amazon pay card', icon: '📦', type: 'Card' },
+  { id: 'AU card', label: 'AU card', icon: '💳', type: 'Card' },
+  { id: 'HDFC card', label: 'HDFC card', icon: '💳', type: 'Card' },
+  { id: 'Axis bank', label: 'Axis bank', icon: '🏦', type: 'Net Banking' },
+  { id: 'Icici bank', label: 'Icici bank', icon: '🏦', type: 'Net Banking' },
+  { id: 'SBI bank', label: 'SBI bank', icon: '🏛️', type: 'Net Banking' },
+];
+
 // Seed initial default household and sample expenses if empty
 function initializeDefaultData() {
   const households = readJsonFile<Record<string, Household>>(HOUSEHOLDS_FILE, {});
@@ -120,10 +153,25 @@ function initializeDefaultData() {
         { id: 'm1', name: 'Shriya', color: '#10b981', avatar: '👩' },
         { id: 'm2', name: 'Husband', color: '#3b82f6', avatar: '👨' },
       ],
+      categories: DEFAULT_CATEGORIES,
+      paymentMethods: DEFAULT_PAYMENT_METHODS,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     writeJsonFile(HOUSEHOLDS_FILE, households);
+  } else {
+    let updated = false;
+    if (!households[defaultId].categories || households[defaultId].categories?.length === 0) {
+      households[defaultId].categories = DEFAULT_CATEGORIES;
+      updated = true;
+    }
+    if (!households[defaultId].paymentMethods || households[defaultId].paymentMethods?.length === 0) {
+      households[defaultId].paymentMethods = DEFAULT_PAYMENT_METHODS;
+      updated = true;
+    }
+    if (updated) {
+      writeJsonFile(HOUSEHOLDS_FILE, households);
+    }
   }
 
   // Pre-seed some realistic expenses for current month and previous month if empty
@@ -313,12 +361,24 @@ app.get('/api/household/:id', (req, res) => {
   if (!household) {
     return res.status(404).json({ error: 'Household not found' });
   }
+  let needWrite = false;
+  if (!household.categories || household.categories.length === 0) {
+    household.categories = DEFAULT_CATEGORIES;
+    needWrite = true;
+  }
+  if (!household.paymentMethods || household.paymentMethods.length === 0) {
+    household.paymentMethods = DEFAULT_PAYMENT_METHODS;
+    needWrite = true;
+  }
+  if (needWrite) {
+    writeJsonFile(HOUSEHOLDS_FILE, households);
+  }
   return res.json(household);
 });
 
 app.post('/api/household', (req, res) => {
   const households = readJsonFile<Record<string, Household>>(HOUSEHOLDS_FILE, {});
-  let { id, name, currency, members } = req.body;
+  let { id, name, currency, members, categories, paymentMethods } = req.body;
 
   const code = (id || `HOME-${Math.floor(1000 + Math.random() * 9000)}`).toUpperCase();
 
@@ -331,10 +391,25 @@ app.post('/api/household', (req, res) => {
         { id: 'm1', name: 'Shriya', color: '#10b981', avatar: '👩' },
         { id: 'm2', name: 'Husband', color: '#3b82f6', avatar: '👨' },
       ],
+      categories: categories || DEFAULT_CATEGORIES,
+      paymentMethods: paymentMethods || DEFAULT_PAYMENT_METHODS,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     writeJsonFile(HOUSEHOLDS_FILE, households);
+  } else {
+    let updated = false;
+    if (!households[code].categories || households[code].categories.length === 0) {
+      households[code].categories = categories || DEFAULT_CATEGORIES;
+      updated = true;
+    }
+    if (!households[code].paymentMethods || households[code].paymentMethods.length === 0) {
+      households[code].paymentMethods = paymentMethods || DEFAULT_PAYMENT_METHODS;
+      updated = true;
+    }
+    if (updated) {
+      writeJsonFile(HOUSEHOLDS_FILE, households);
+    }
   }
   return res.json(households[code]);
 });
@@ -352,6 +427,8 @@ app.put('/api/household/:id', (req, res) => {
         { id: 'm1', name: 'Shriya', color: '#10b981', avatar: '👩' },
         { id: 'm2', name: 'Husband', color: '#3b82f6', avatar: '👨' },
       ],
+      categories: DEFAULT_CATEGORIES,
+      paymentMethods: DEFAULT_PAYMENT_METHODS,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
