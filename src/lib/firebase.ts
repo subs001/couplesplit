@@ -4,19 +4,18 @@ import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 
 // Read Firebase configuration directly from environment variables (Vite / Netlify / Production)
 const firebaseConfig = {
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'gen-lang-client-0205851368',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:531792615221:web:3f2659739614ca99f11e7c',
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyBagmCaSmhuT-nPYOG3DtlIzyKXhdXCUoI',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'gen-lang-client-0205851368.firebaseapp.com',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'gen-lang-client-0205851368.firebasestorage.app',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '531792615221',
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 // Firestore Database ID
 const firestoreDatabaseId =
-  import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID ||
-  'ai-studio-duospendsharedex-38163ee9-911b-46c5-85d6-e37bb7b67181';
+  import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID;
 
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
