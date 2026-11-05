@@ -1,0 +1,6 @@
+{
+  "name": "DuoSpend - Shared Expense Tracker",
+  "description": "A modern, lightweight shared expense and budget tracker designed for two people to seamlessly split bills, track balances, and analyze finances in real time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

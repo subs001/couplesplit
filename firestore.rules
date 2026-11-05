@@ -1,0 +1,105 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    function getAccount(accountId) {
+      return get(/databases/$(database)/documents/sharedAccounts/$(accountId)).data;
+    }
+
+    function isMemberOfAccount(accountId) {
+      return isSignedIn() && (request.auth.uid in getAccount(accountId).memberUids);
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    // Shared Accounts
+    match /sharedAccounts/{accountId} {
+      allow get: if isSignedIn() && (
+        (request.auth.uid in resource.data.memberUids) ||
+        (request.auth.token.email != null && (request.auth.token.email in resource.data.memberEmails))
+      );
+
+      allow list: if isSignedIn() && (
+        resource.data.memberUids.hasAny([request.auth.uid]) ||
+        (request.auth.token.email != null && resource.data.memberEmails.hasAny([request.auth.token.email]))
+      );
+
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && (request.auth.uid in request.resource.data.memberUids)
+        && request.resource.data.memberUids.size() <= 2
+        && request.resource.data.memberEmails.size() <= 2;
+
+      allow update: if isSignedIn() && (
+        // Existing member modifying settings or adding member email
+        (request.auth.uid in resource.data.memberUids && request.resource.data.memberUids.size() <= 2)
+        // Invitee joining account
+        || (request.auth.token.email != null && (request.auth.token.email in resource.data.memberEmails) && (request.auth.uid in request.resource.data.memberUids) && request.resource.data.memberUids.size() <= 2)
+        // User joining with invite code
+        || (resource.data.memberUids.size() == 1 && (request.auth.uid in request.resource.data.memberUids) && request.resource.data.memberUids.size() == 2)
+      );
+
+      allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+
+      // Expenses subcollection
+      match /expenses/{expenseId} {
+        allow read: if isMemberOfAccount(accountId);
+        allow create: if isMemberOfAccount(accountId)
+          && request.resource.data.title is string
+          && request.resource.data.title.size() <= 200
+          && request.resource.data.amount is number
+          && request.resource.data.amount > 0;
+        allow update: if isMemberOfAccount(accountId)
+          && request.resource.data.title is string
+          && request.resource.data.title.size() <= 200
+          && request.resource.data.amount is number
+          && request.resource.data.amount > 0;
+        allow delete: if isMemberOfAccount(accountId);
+      }
+
+      // Categories subcollection
+      match /categories/{categoryId} {
+        allow read: if isMemberOfAccount(accountId);
+        allow create, update: if isMemberOfAccount(accountId)
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 50;
+        allow delete: if isMemberOfAccount(accountId);
+      }
+
+      // Payment Methods subcollection
+      match /paymentMethods/{paymentMethodId} {
+        allow read: if isMemberOfAccount(accountId);
+        allow create, update: if isMemberOfAccount(accountId)
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 50;
+        allow delete: if isMemberOfAccount(accountId);
+      }
+    }
+  }
+}

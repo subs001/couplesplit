@@ -1,0 +1,105 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth user ID" },
+        "displayName": { "type": "string", "description": "User full name" },
+        "email": { "type": "string", "description": "User Google email address" },
+        "photoURL": { "type": "string", "description": "User avatar photo URL" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["uid", "email"]
+    },
+    "SharedAccount": {
+      "title": "SharedAccount",
+      "description": "Shared expense account between two authorized users",
+      "type": "object",
+      "properties": {
+        "accountId": { "type": "string", "description": "Unique ID of the shared account" },
+        "name": { "type": "string", "description": "Account display name" },
+        "createdBy": { "type": "string", "description": "UID of account creator" },
+        "memberUids": { "type": "array", "description": "Array of authorized member UIDs (maximum 2)" },
+        "memberEmails": { "type": "array", "description": "Array of member emails" },
+        "inviteCode": { "type": "string", "description": "Short code to easily join the account" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["accountId", "createdBy", "memberUids", "memberEmails"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "An expense record in the shared account",
+      "type": "object",
+      "properties": {
+        "expenseId": { "type": "string", "description": "Unique expense ID" },
+        "title": { "type": "string", "description": "Title/description of the expense" },
+        "amount": { "type": "number", "description": "Total amount paid in INR" },
+        "location": { "type": "string", "description": "Optional location/merchant" },
+        "categoryId": { "type": "string", "description": "Category ID" },
+        "categoryName": { "type": "string", "description": "Category name for denormalized display" },
+        "paymentMethodId": { "type": "string", "description": "Payment method ID" },
+        "paymentMethodName": { "type": "string", "description": "Payment method name" },
+        "paidBy": { "type": "string", "description": "Firebase UID of user who paid" },
+        "paidByName": { "type": "string", "description": "Display name of payer" },
+        "splitType": { "type": "string", "enum": ["equal", "personal", "custom"], "description": "How the expense is split" },
+        "splitDetails": { "type": "object", "description": "Split breakdown per user" },
+        "expenseDate": { "type": "string", "description": "Date of expense in YYYY-MM-DD" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["expenseId", "title", "amount", "categoryId", "paymentMethodId", "paidBy", "splitType", "expenseDate"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Expense category for the shared account",
+      "type": "object",
+      "properties": {
+        "categoryId": { "type": "string", "description": "Category ID" },
+        "name": { "type": "string", "description": "Category name" },
+        "colour": { "type": "string", "description": "Hex or tailwind color code" },
+        "icon": { "type": "string", "description": "Lucide icon name identifier" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["categoryId", "name", "colour", "icon"]
+    },
+    "PaymentMethod": {
+      "title": "PaymentMethod",
+      "description": "Payment method for the shared account",
+      "type": "object",
+      "properties": {
+        "paymentMethodId": { "type": "string", "description": "Payment method ID" },
+        "name": { "type": "string", "description": "Payment method name" },
+        "icon": { "type": "string", "description": "Lucide icon name identifier" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["paymentMethodId", "name", "icon"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile directory"
+    },
+    "/sharedAccounts/{accountId}": {
+      "schema": "SharedAccount",
+      "description": "Shared account metadata and access controls"
+    },
+    "/sharedAccounts/{accountId}/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Expenses collection within a shared account"
+    },
+    "/sharedAccounts/{accountId}/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Customizable categories within a shared account"
+    },
+    "/sharedAccounts/{accountId}/paymentMethods/{paymentMethodId}": {
+      "schema": "PaymentMethod",
+      "description": "Customizable payment methods within a shared account"
+    }
+  }
+}

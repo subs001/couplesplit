@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --bg-app: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-surface-hover: #F1F5F9;
+  --bg-surface-subtle: #F1F5F9;
+  --border-app: #E2E8F0;
+  --border-subtle: #F1F5F9;
+  --text-main: #0F172A;
+  --text-muted: #64748B;
+  --text-subtle: #94A3B8;
+  --brand-primary: #4F46E5;
+  --brand-primary-hover: #4338CA;
+  --brand-primary-light: #EEF2FF;
+  --brand-accent: #0D9488;
+}
+
+[data-theme="dark"] {
+  --bg-app: #0B0F19;
+  --bg-surface: #131B2E;
+  --bg-surface-hover: #1C2742;
+  --bg-surface-subtle: #182239;
+  --border-app: #23314F;
+  --border-subtle: #1A253D;
+  --text-main: #F8FAFC;
+  --text-muted: #94A3B8;
+  --text-subtle: #64748B;
+  --brand-primary: #6366F1;
+  --brand-primary-hover: #4F46E5;
+  --brand-primary-light: #1E1B4B;
+  --brand-accent: #14B8A6;
+}
+
+[data-theme="sakura"] {
+  --bg-app: #FFF5F7;
+  --bg-surface: #FFFFFF;
+  --bg-surface-hover: #FFF1F4;
+  --bg-surface-subtle: #FFE4E8;
+  --border-app: #FECDD6;
+  --border-subtle: #FFE4E8;
+  --text-main: #4C0519;
+  --text-muted: #881337;
+  --text-subtle: #9F1239;
+  --brand-primary: #E11D48;
+  --brand-primary-hover: #BE123C;
+  --brand-primary-light: #FFE4E6;
+  --brand-accent: #DB2777;
+}
+
+html, body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Safe area padding utilities for mobile notches and home indicators */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+}
+
+.safe-padding-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
+}
+
+/* Prevent iOS Safari auto-zoom when tapping inputs */
+@media screen and (max-width: 640px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-app);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-subtle);
+}

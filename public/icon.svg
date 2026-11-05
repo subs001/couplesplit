@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="50%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+
+  <!-- Inner stylized duo icons & split symbol -->
+  <g filter="url(#shadow)" fill="#ffffff">
+    <!-- User 1 Head & Body -->
+    <circle cx="190" cy="190" r="54"/>
+    <path d="M110 350 C110 290, 150 260, 190 260 C230 260, 270 290, 270 350 Z" />
+
+    <!-- User 2 Head & Body -->
+    <circle cx="322" cy="190" r="54" fill-opacity="0.9"/>
+    <path d="M242 350 C242 290, 282 260, 322 260 C362 260, 402 290, 402 350 Z" fill-opacity="0.9"/>
+
+    <!-- Central Split Rupee / Sparkle Coin -->
+    <circle cx="256" cy="350" r="48" fill="#FBBF24"/>
+    <text x="256" y="367" font-family="Arial, sans-serif" font-size="44" font-weight="900" fill="#78350F" text-anchor="middle">₹</text>
+  </g>
+</svg>
