@@ -43,8 +43,8 @@ function AppContent() {
   if (authLoading || (user && accountLoading)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-rose-500 to-amber-500 text-white flex items-center justify-center shadow-lg mb-4 animate-pulse">
-          <Users className="w-7 h-7" />
+        <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg mb-4 animate-pulse">
+          <img src="/icon.svg" alt="DuoSpend" className="w-full h-full object-cover" />
         </div>
         <div className="flex items-center gap-2 text-xs font-semibold text-muted">
           <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />

@@ -50,8 +50,8 @@ export function Navbar({
             onClick={() => setCurrentTab('dashboard')}
             className="flex items-center gap-2.5 text-left group cursor-pointer focus:outline-none"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-rose-500 to-amber-500 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-              <Users className="w-5 h-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-sm group-hover:scale-105 transition-transform shrink-0">
+              <img src="/icon.svg" alt="DuoSpend Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="text-sm sm:text-base font-extrabold tracking-tight flex items-center gap-1.5">

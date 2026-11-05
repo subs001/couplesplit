@@ -104,8 +104,8 @@ export function JoinAccountScreen() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-rose-500 text-white shadow-lg mb-3">
-            <Users className="w-7 h-7" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden shadow-lg mb-3">
+            <img src="/app-logo.svg" alt="DuoSpend" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Connect Your Duo Account</h1>
           <p className="text-xs text-muted mt-1">
