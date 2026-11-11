@@ -29,6 +29,20 @@
       },
       "required": ["accountId", "createdBy", "memberUids", "memberEmails"]
     },
+    "InviteCode": {
+      "title": "InviteCode",
+      "description": "Direct lookup mapping from 6-digit invite code to shared account",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "6-character invite code" },
+        "accountId": { "type": "string", "description": "Target shared account ID" },
+        "accountName": { "type": "string", "description": "Display name of account" },
+        "creatorUid": { "type": "string", "description": "UID of user who created invite" },
+        "creatorEmail": { "type": "string", "description": "Email of user who created invite" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["code", "accountId", "creatorUid"]
+    },
     "Expense": {
       "title": "Expense",
       "description": "An expense record in the shared account",
@@ -88,6 +102,10 @@
     "/sharedAccounts/{accountId}": {
       "schema": "SharedAccount",
       "description": "Shared account metadata and access controls"
+    },
+    "/inviteCodes/{code}": {
+      "schema": "InviteCode",
+      "description": "Lookup registry for account invitation codes"
     },
     "/sharedAccounts/{accountId}/expenses/{expenseId}": {
       "schema": "Expense",

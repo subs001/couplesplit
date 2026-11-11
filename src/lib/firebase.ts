@@ -21,7 +21,7 @@ const firestoreDatabaseId =
 const app = initializeApp(firebaseConfig);
 
 // Initialize Cloud Firestore with the configured Database ID
-export const db = getFirestore(app, firestoreDatabaseId);
+export const db = firestoreDatabaseId ? getFirestore(app, firestoreDatabaseId) : getFirestore(app);
 
 // Initialize Firebase Authentication
 export const auth = getAuth(app);

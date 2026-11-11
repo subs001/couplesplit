@@ -36,11 +36,21 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Invite Codes registry (direct 1:1 lookup)
+    match /inviteCodes/{code} {
+      allow get: if isSignedIn() && isValidId(code);
+      allow list: if false;
+      allow create: if isSignedIn() && isValidId(code) && request.resource.data.creatorUid == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.creatorUid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.creatorUid == request.auth.uid;
+    }
+
     // Shared Accounts
     match /sharedAccounts/{accountId} {
       allow get: if isSignedIn() && (
         (request.auth.uid in resource.data.memberUids) ||
-        (request.auth.token.email != null && (request.auth.token.email in resource.data.memberEmails))
+        (request.auth.token.email != null && (request.auth.token.email in resource.data.memberEmails)) ||
+        (resource.data.memberUids.size() < 2)
       );
 
       allow list: if isSignedIn() && (
@@ -52,15 +62,20 @@ service cloud.firestore {
         && request.resource.data.createdBy == request.auth.uid
         && (request.auth.uid in request.resource.data.memberUids)
         && request.resource.data.memberUids.size() <= 2
-        && request.resource.data.memberEmails.size() <= 2;
+        && request.resource.data.memberEmails.size() <= 6;
 
       allow update: if isSignedIn() && (
         // Existing member modifying settings or adding member email
         (request.auth.uid in resource.data.memberUids && request.resource.data.memberUids.size() <= 2)
-        // Invitee joining account
-        || (request.auth.token.email != null && (request.auth.token.email in resource.data.memberEmails) && (request.auth.uid in request.resource.data.memberUids) && request.resource.data.memberUids.size() <= 2)
-        // User joining with invite code
-        || (resource.data.memberUids.size() == 1 && (request.auth.uid in request.resource.data.memberUids) && request.resource.data.memberUids.size() == 2)
+        // User joining as the 2nd member
+        || (
+          resource.data.memberUids.size() == 1
+          && (request.auth.uid in request.resource.data.memberUids)
+          && request.resource.data.memberUids.size() == 2
+          && (resource.data.memberUids[0] in request.resource.data.memberUids)
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.accountId == resource.data.accountId
+        )
       );
 
       allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;

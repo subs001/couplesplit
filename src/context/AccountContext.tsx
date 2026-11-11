@@ -126,6 +126,23 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
             accountId: snapshot.docs[0].id,
           };
           setAccount(currentAcc);
+
+          // If current user is sole member and has inviteCode, sync to inviteCodes collection
+          if (currentAcc.inviteCode && currentAcc.memberUids.length === 1 && currentAcc.memberUids.includes(user.uid)) {
+            try {
+              const codeRef = doc(db, 'inviteCodes', currentAcc.inviteCode);
+              setDoc(codeRef, {
+                code: currentAcc.inviteCode,
+                accountId: currentAcc.accountId,
+                accountName: currentAcc.name || 'Shared Expenses',
+                creatorUid: currentAcc.createdBy || user.uid,
+                creatorEmail: user.email || '',
+                createdAt: serverTimestamp(),
+              }, { merge: true }).catch(() => {});
+            } catch {
+              // silent background sync
+            }
+          }
         } else {
           // If not member yet, check if there is an invitation matching user's email
           if (userEmail) {
@@ -305,12 +322,17 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   const createNewAccount = async (accountName = 'Our Expenses', inviteEmail?: string): Promise<string> => {
     if (!user) throw new Error('You must be signed in to create an account');
 
-    const cleanEmail = inviteEmail?.trim().toLowerCase();
     const userEmail = user.email?.toLowerCase() || '';
-    const memberEmails = [userEmail];
-    if (cleanEmail && cleanEmail !== userEmail) {
-      memberEmails.push(cleanEmail);
-    }
+    const rawUserEmail = user.email || '';
+    const cleanEmail = inviteEmail?.trim().toLowerCase();
+    const rawInviteEmail = inviteEmail?.trim() || '';
+
+    const memberEmailsSet = new Set<string>();
+    if (userEmail) memberEmailsSet.add(userEmail);
+    if (rawUserEmail) memberEmailsSet.add(rawUserEmail);
+    if (cleanEmail) memberEmailsSet.add(cleanEmail);
+    if (rawInviteEmail) memberEmailsSet.add(rawInviteEmail);
+    const memberEmails = Array.from(memberEmailsSet);
 
     const accountRef = doc(collection(db, 'sharedAccounts'));
     const inviteCode = generateInviteCode();
@@ -328,6 +350,21 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
 
     try {
       await setDoc(accountRef, accountData);
+
+      // Register invite code for fast and secure O(1) lookup by the second user
+      try {
+        await setDoc(doc(db, 'inviteCodes', inviteCode), {
+          code: inviteCode,
+          accountId: accountRef.id,
+          accountName,
+          creatorUid: user.uid,
+          creatorEmail: user.email || '',
+          createdAt: serverTimestamp(),
+        });
+      } catch (codeErr) {
+        console.warn('Could not register invite code document:', codeErr);
+      }
+
       await seedDefaults(accountRef.id);
       setAccount({ ...accountData, accountId: accountRef.id });
       return accountRef.id;
@@ -340,24 +377,33 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   const invitePartnerByEmail = async (email: string) => {
     if (!account || !user) return;
     const cleanEmail = email.trim().toLowerCase();
+    const rawEmail = email.trim();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       throw new Error('Please enter a valid email address');
     }
 
-    if (account.memberEmails.includes(cleanEmail)) {
-      throw new Error('This email is already part of the shared account');
+    if (account.memberEmails.includes(cleanEmail) || account.memberEmails.includes(rawEmail)) {
+      throw new Error('This email is already invited to this shared account');
     }
 
     if (account.memberUids.length >= 2) {
       throw new Error('This shared account already has 2 members');
     }
 
-    const updatedEmails = [...account.memberEmails, cleanEmail];
+    const emailSet = new Set(account.memberEmails);
+    emailSet.add(cleanEmail);
+    emailSet.add(rawEmail);
+    const updatedEmails = Array.from(emailSet);
+
     try {
       const accRef = doc(db, 'sharedAccounts', account.accountId);
       await updateDoc(accRef, {
         memberEmails: updatedEmails,
         updatedAt: serverTimestamp(),
+      });
+      setAccount({
+        ...account,
+        memberEmails: updatedEmails,
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `sharedAccounts/${account.accountId}`);
@@ -371,49 +417,45 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     if (!cleanCode) return false;
 
     try {
-      const q = query(collection(db, 'sharedAccounts'), where('inviteCode', '==', cleanCode));
-      const snap = await getDocs(q);
+      // 1. Direct O(1) document lookup in inviteCodes (allowed for all signed-in users)
+      const codeRef = doc(db, 'inviteCodes', cleanCode);
+      const codeSnap = await getDoc(codeRef);
 
-      if (snap.empty) {
-        throw new Error('No shared account found with this invite code');
+      let targetAccountId = '';
+      if (codeSnap.exists()) {
+        targetAccountId = codeSnap.data()?.accountId;
+      } else {
+        // Fallback: If invite code doc wasn't created yet (e.g. legacy account), try querying sharedAccounts
+        try {
+          const q = query(collection(db, 'sharedAccounts'), where('inviteCode', '==', cleanCode));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            targetAccountId = snap.docs[0].id;
+          }
+        } catch {
+          // If query fails due to collection-level listing rules, handled below
+        }
       }
 
-      const accDoc = snap.docs[0];
-      const accData = accDoc.data() as SharedAccount;
-
-      if (accData.memberUids.includes(user.uid)) {
-        // Already a member
-        setAccount({ ...accData, accountId: accDoc.id });
-        return true;
+      if (!targetAccountId) {
+        throw new Error('No shared account found with this invite code. Please check the 6-character code and try again.');
       }
 
-      if (accData.memberUids.length >= 2) {
-        throw new Error('This shared account already has the maximum of 2 members.');
-      }
-
-      const userEmail = user.email?.toLowerCase() || '';
-      const newMemberUids = [...accData.memberUids, user.uid];
-      const newMemberEmails = accData.memberEmails.includes(userEmail)
-        ? accData.memberEmails
-        : [...accData.memberEmails, userEmail];
-
-      await updateDoc(doc(db, 'sharedAccounts', accDoc.id), {
-        memberUids: newMemberUids,
-        memberEmails: newMemberEmails,
-        updatedAt: serverTimestamp(),
-      });
-
-      return true;
+      return await joinAccountById(targetAccountId);
     } catch (error: any) {
-      if (error.message?.includes('No shared account') || error.message?.includes('maximum of 2 members')) {
+      if (
+        error.message?.includes('No shared account') ||
+        error.message?.includes('maximum of 2 members') ||
+        error.message?.includes('already has')
+      ) {
         throw error;
       }
-      handleFirestoreError(error, OperationType.UPDATE, 'sharedAccounts');
+      handleFirestoreError(error, OperationType.GET, `inviteCodes/${cleanCode}`);
       return false;
     }
   };
 
-  // Join by Account ID (e.g. from invitation card)
+  // Join by Account ID (e.g. from invitation card or resolved invite code)
   const joinAccountById = async (accountId: string): Promise<boolean> => {
     if (!user) return false;
     try {
@@ -430,14 +472,17 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (accData.memberUids.length >= 2) {
-        throw new Error('This account already has 2 members');
+        throw new Error('This shared account already has the maximum of 2 members.');
       }
 
-      const userEmail = user.email?.toLowerCase() || '';
-      const newMemberUids = [...accData.memberUids, user.uid];
-      const newMemberEmails = accData.memberEmails.includes(userEmail)
-        ? accData.memberEmails
-        : [...accData.memberEmails, userEmail];
+      const userEmailLower = user.email?.toLowerCase() || '';
+      const userEmailRaw = user.email || '';
+      const newMemberUids = [accData.memberUids[0], user.uid];
+
+      const emailSet = new Set(accData.memberEmails || []);
+      if (userEmailLower) emailSet.add(userEmailLower);
+      if (userEmailRaw) emailSet.add(userEmailRaw);
+      const newMemberEmails = Array.from(emailSet);
 
       await updateDoc(accRef, {
         memberUids: newMemberUids,
@@ -445,9 +490,23 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp(),
       });
 
+      // Update state locally
+      setAccount({
+        ...accData,
+        accountId,
+        memberUids: newMemberUids,
+        memberEmails: newMemberEmails,
+      });
+
+      setPendingInvitations((prev) => prev.filter((inv) => inv.accountId !== accountId));
+
       return true;
     } catch (error: any) {
-      if (error.message?.includes('Shared account not found') || error.message?.includes('already has 2 members')) {
+      if (
+        error.message?.includes('Shared account not found') ||
+        error.message?.includes('maximum of 2 members') ||
+        error.message?.includes('already has')
+      ) {
         throw error;
       }
       handleFirestoreError(error, OperationType.UPDATE, `sharedAccounts/${accountId}`);
@@ -462,11 +521,18 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       const accRef = doc(db, 'sharedAccounts', account.accountId);
       const remainingUids = account.memberUids.filter((uid) => uid !== user.uid);
       const remainingEmails = account.memberEmails.filter(
-        (em) => em !== user.email?.toLowerCase()
+        (em) => em !== user.email?.toLowerCase() && em !== user.email
       );
 
       if (remainingUids.length === 0) {
-        // If creator is leaving and no other member, delete account
+        // If creator is leaving and no other member, delete account and invite code
+        if (account.inviteCode) {
+          try {
+            await deleteDoc(doc(db, 'inviteCodes', account.inviteCode));
+          } catch {
+            // ignore
+          }
+        }
         await deleteDoc(accRef);
       } else {
         await updateDoc(accRef, {
