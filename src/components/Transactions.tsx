@@ -19,6 +19,7 @@ import {
   Receipt,
   X,
   FileSpreadsheet,
+  AlertCircle,
 } from 'lucide-react';
 
 interface TransactionsProps {
@@ -46,20 +47,24 @@ export function Transactions({ onOpenAddExpense, onEditExpense }: TransactionsPr
 
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Filter and sort expenses
   const filteredList = useMemo(() => {
     return filterExpenses(expenses, currentUserUid, filters);
   }, [expenses, currentUserUid, filters]);
 
-  const handleDelete = async (expenseId: string, title: string) => {
-    if (confirm(`Are you sure you want to delete "${title}"?`)) {
-      setDeletingId(expenseId);
-      try {
-        await deleteExpense(expenseId);
-      } finally {
-        setDeletingId(null);
-      }
+  const handleDelete = async (expenseId: string) => {
+    setDeleteError(null);
+    setDeletingId(expenseId);
+    try {
+      await deleteExpense(expenseId);
+      setConfirmDeleteId(null);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Failed to delete expense');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -313,6 +318,18 @@ export function Transactions({ onOpenAddExpense, onEditExpense }: TransactionsPr
         )}
       </div>
 
+      {deleteError && (
+        <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{deleteError}</span>
+          </div>
+          <button onClick={() => setDeleteError(null)} className="underline cursor-pointer">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Expenses List */}
       {filteredList.length === 0 ? (
         <div className="p-12 text-center rounded-3xl border bg-surface border-app">
@@ -417,23 +434,42 @@ export function Transactions({ onOpenAddExpense, onEditExpense }: TransactionsPr
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-1 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => onEditExpense(expense)}
-                      title="Edit Expense"
-                      className="p-2 rounded-xl hover:bg-surface-subtle text-muted hover:text-indigo-600 transition-colors cursor-pointer"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(expense.expenseId, expense.title)}
-                      disabled={deletingId === expense.expenseId}
-                      title="Delete Expense"
-                      className="p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 text-muted hover:text-red-600 transition-colors cursor-pointer disabled:opacity-40"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {confirmDeleteId === expense.expenseId ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleDelete(expense.expenseId)}
+                        disabled={deletingId === expense.expenseId}
+                        className="px-2.5 py-1.5 rounded-lg bg-red-600 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-40"
+                      >
+                        {deletingId === expense.expenseId ? 'Deleting...' : 'Delete'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        disabled={deletingId === expense.expenseId}
+                        className="px-2.5 py-1.5 rounded-lg border border-app text-[11px] font-medium cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => onEditExpense(expense)}
+                        title="Edit Expense"
+                        className="p-2 rounded-xl hover:bg-surface-subtle text-muted hover:text-indigo-600 transition-colors cursor-pointer"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(expense.expenseId)}
+                        disabled={deletingId === expense.expenseId}
+                        title="Delete Expense"
+                        className="p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 text-muted hover:text-red-600 transition-colors cursor-pointer disabled:opacity-40"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );

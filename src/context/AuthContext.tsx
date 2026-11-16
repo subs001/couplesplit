@@ -45,12 +45,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: currentUser.uid,
         displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
         email: currentUser.email?.toLowerCase() || '',
-        photoURL: currentUser.photoURL || undefined,
+        ...(currentUser.photoURL ? { photoURL: currentUser.photoURL } : {}),
+      };
+
+      const firestoreProfileData = {
+        uid: profileData.uid,
+        displayName: profileData.displayName,
+        email: profileData.email,
+        ...(profileData.photoURL ? { photoURL: profileData.photoURL } : {}),
       };
 
       if (!snap.exists()) {
         await setDoc(userDocRef, {
-          ...profileData,
+          ...firestoreProfileData,
           createdAt: serverTimestamp(),
         });
       } else {
@@ -59,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           existing.displayName !== profileData.displayName ||
           existing.photoURL !== profileData.photoURL
         ) {
-          await setDoc(userDocRef, profileData, { merge: true });
+          await setDoc(userDocRef, firestoreProfileData, { merge: true });
         }
       }
       setUserProfile(profileData);

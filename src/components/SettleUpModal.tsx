@@ -207,6 +207,7 @@ export function SettleUpModal({ isOpen, onClose, summary }: SettleUpModalProps) 
               <label className="block text-xs font-semibold mb-1">Note / Description</label>
               <input
                 type="text"
+                maxLength={200}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="e.g. Paid via Google Pay"

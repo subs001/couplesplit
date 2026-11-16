@@ -184,6 +184,7 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
     }
 
     const payerName = paidBy === currentUserUid ? currentUserName : partnerName;
+    const trimmedLocation = location.trim();
 
     setIsSubmitting(true);
     try {
@@ -191,7 +192,7 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
         await updateExpense(editingExpense.expenseId, {
           title: trimmedTitle,
           amount: parsedAmount,
-          location: location.trim() || undefined,
+          location: trimmedLocation || undefined,
           categoryId: selectedCategory.categoryId,
           categoryName: selectedCategory.name,
           paymentMethodId: selectedPaymentMethod.paymentMethodId,
@@ -203,10 +204,9 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
           expenseDate,
         });
       } else {
-        await addExpense({
+        const newExpense: Omit<Expense, 'expenseId' | 'createdAt' | 'updatedAt'> = {
           title: trimmedTitle,
           amount: parsedAmount,
-          location: location.trim() || undefined,
           categoryId: selectedCategory.categoryId,
           categoryName: selectedCategory.name,
           paymentMethodId: selectedPaymentMethod.paymentMethodId,
@@ -214,9 +214,11 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
           paidBy,
           paidByName: payerName,
           splitType,
-          splitDetails: splitDetailsData,
           expenseDate,
-        });
+          ...(trimmedLocation ? { location: trimmedLocation } : {}),
+          ...(splitDetailsData ? { splitDetails: splitDetailsData } : {}),
+        };
+        await addExpense(newExpense);
       }
       onClose();
     } catch (err: any) {
@@ -267,6 +269,7 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
               <input
                 type="text"
                 required
+                maxLength={200}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Dinner, Grocery, WiFi"

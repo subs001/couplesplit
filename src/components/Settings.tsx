@@ -76,6 +76,8 @@ export function Settings() {
   const [categoryColor, setCategoryColor] = useState(PRESET_COLORS[0]);
   const [categoryIcon, setCategoryIcon] = useState('Tag');
   const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [confirmDeleteCategoryId, setConfirmDeleteCategoryId] = useState<string | null>(null);
+  const [categoryListError, setCategoryListError] = useState<string | null>(null);
 
   // Payment Method Edit / Add modal state
   const [isPmModalOpen, setIsPmModalOpen] = useState(false);
@@ -83,6 +85,8 @@ export function Settings() {
   const [pmName, setPmName] = useState('');
   const [pmIcon, setPmIcon] = useState('CreditCard');
   const [pmError, setPmError] = useState<string | null>(null);
+  const [confirmDeletePmId, setConfirmDeletePmId] = useState<string | null>(null);
+  const [pmListError, setPmListError] = useState<string | null>(null);
 
   // Leave account state
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -131,9 +135,9 @@ export function Settings() {
 
   const openEditCategory = (cat: any) => {
     setEditingCategoryId(cat.categoryId);
-    setCategoryName(cat.name);
-    setCategoryColor(cat.colour);
-    setCategoryIcon(cat.icon);
+    setCategoryName(cat.name || '');
+    setCategoryColor(cat.colour || PRESET_COLORS[0]);
+    setCategoryIcon(cat.icon || 'Tag');
     setCategoryError(null);
     setIsCategoryModalOpen(true);
   };
@@ -141,25 +145,36 @@ export function Settings() {
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     setCategoryError(null);
-    if (editingCategoryId) {
-      const res = await updateCategory(editingCategoryId, categoryName, categoryColor, categoryIcon);
-      if (!res.success) {
-        setCategoryError(res.message || 'Failed to update category');
-        return;
+    try {
+      if (editingCategoryId) {
+        const res = await updateCategory(editingCategoryId, categoryName, categoryColor, categoryIcon);
+        if (!res.success) {
+          setCategoryError(res.message || 'Failed to update category');
+          return;
+        }
+      } else {
+        const res = await addCategory(categoryName, categoryColor, categoryIcon);
+        if (!res.success) {
+          setCategoryError(res.message || 'Failed to add category');
+          return;
+        }
       }
-    } else {
-      const res = await addCategory(categoryName, categoryColor, categoryIcon);
-      if (!res.success) {
-        setCategoryError(res.message || 'Failed to add category');
-        return;
-      }
+      setIsCategoryModalOpen(false);
+    } catch (err: any) {
+      setCategoryError(err.message || 'Failed to save category');
     }
-    setIsCategoryModalOpen(false);
   };
 
-  const handleDeleteCategory = async (categoryId: string, name: string) => {
-    if (confirm(`Are you sure you want to delete category "${name}"?`)) {
-      await deleteCategory(categoryId);
+  const handleDeleteCategory = async (categoryId: string) => {
+    setCategoryListError(null);
+    try {
+      const res = await deleteCategory(categoryId);
+      if (!res.success) {
+        setCategoryListError(res.message || 'Failed to delete category');
+      }
+      setConfirmDeleteCategoryId(null);
+    } catch (err: any) {
+      setCategoryListError(err.message || 'Failed to delete category');
     }
   };
 
@@ -174,8 +189,8 @@ export function Settings() {
 
   const openEditPm = (pm: any) => {
     setEditingPmId(pm.paymentMethodId);
-    setPmName(pm.name);
-    setPmIcon(pm.icon);
+    setPmName(pm.name || '');
+    setPmIcon(pm.icon || 'CreditCard');
     setPmError(null);
     setIsPmModalOpen(true);
   };
@@ -183,25 +198,36 @@ export function Settings() {
   const handleSavePm = async (e: React.FormEvent) => {
     e.preventDefault();
     setPmError(null);
-    if (editingPmId) {
-      const res = await updatePaymentMethod(editingPmId, pmName, pmIcon);
-      if (!res.success) {
-        setPmError(res.message || 'Failed to update payment method');
-        return;
+    try {
+      if (editingPmId) {
+        const res = await updatePaymentMethod(editingPmId, pmName, pmIcon);
+        if (!res.success) {
+          setPmError(res.message || 'Failed to update payment method');
+          return;
+        }
+      } else {
+        const res = await addPaymentMethod(pmName, pmIcon);
+        if (!res.success) {
+          setPmError(res.message || 'Failed to add payment method');
+          return;
+        }
       }
-    } else {
-      const res = await addPaymentMethod(pmName, pmIcon);
-      if (!res.success) {
-        setPmError(res.message || 'Failed to add payment method');
-        return;
-      }
+      setIsPmModalOpen(false);
+    } catch (err: any) {
+      setPmError(err.message || 'Failed to save payment method');
     }
-    setIsPmModalOpen(false);
   };
 
-  const handleDeletePm = async (pmId: string, name: string) => {
-    if (confirm(`Are you sure you want to delete payment method "${name}"?`)) {
-      await deletePaymentMethod(pmId);
+  const handleDeletePm = async (pmId: string) => {
+    setPmListError(null);
+    try {
+      const res = await deletePaymentMethod(pmId);
+      if (!res.success) {
+        setPmListError(res.message || 'Failed to delete payment method');
+      }
+      setConfirmDeletePmId(null);
+    } catch (err: any) {
+      setPmListError(err.message || 'Failed to delete payment method');
     }
   };
 
@@ -499,13 +525,20 @@ export function Settings() {
           </button>
         </div>
 
+        {categoryListError && (
+          <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{categoryListError}</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {categories.map((cat) => (
             <div
               key={cat.categoryId}
               className="p-3 rounded-2xl border border-app bg-surface-subtle flex items-center justify-between gap-3 group"
             >
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div
                   className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
                   style={{ backgroundColor: `${cat.colour}20`, color: cat.colour }}
@@ -515,22 +548,39 @@ export function Settings() {
                 <span className="text-xs font-bold truncate">{cat.name}</span>
               </div>
 
-              <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={() => openEditCategory(cat)}
-                  className="p-1 rounded-lg hover:bg-surface text-muted hover:text-slate-900 dark:hover:text-white cursor-pointer"
-                  title="Edit"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => handleDeleteCategory(cat.categoryId, cat.name)}
-                  className="p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-muted hover:text-red-600 cursor-pointer"
-                  title="Delete"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              {confirmDeleteCategoryId === cat.categoryId ? (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => handleDeleteCategory(cat.categoryId)}
+                    className="px-2 py-1 rounded-lg bg-red-600 text-white text-[10px] font-semibold cursor-pointer"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteCategoryId(null)}
+                    className="px-2 py-1 rounded-lg border border-app text-[10px] font-medium cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 opacity-80 sm:opacity-70 group-hover:opacity-100 transition-opacity shrink-0">
+                  <button
+                    onClick={() => openEditCategory(cat)}
+                    className="p-1 rounded-lg hover:bg-surface text-muted hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                    title="Edit"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteCategoryId(cat.categoryId)}
+                    className="p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-muted hover:text-red-600 cursor-pointer"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -557,35 +607,59 @@ export function Settings() {
           </button>
         </div>
 
+        {pmListError && (
+          <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{pmListError}</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {paymentMethods.map((pm) => (
             <div
               key={pm.paymentMethodId}
               className="p-3 rounded-2xl border border-app bg-surface-subtle flex items-center justify-between gap-3 group"
             >
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-xl bg-surface flex items-center justify-center shrink-0 border border-app text-indigo-600">
                   <DynamicIcon name={pm.icon} className="w-4 h-4" />
                 </div>
                 <span className="text-xs font-bold truncate">{pm.name}</span>
               </div>
 
-              <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={() => openEditPm(pm)}
-                  className="p-1 rounded-lg hover:bg-surface text-muted hover:text-slate-900 dark:hover:text-white cursor-pointer"
-                  title="Edit"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => handleDeletePm(pm.paymentMethodId, pm.name)}
-                  className="p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-muted hover:text-red-600 cursor-pointer"
-                  title="Delete"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              {confirmDeletePmId === pm.paymentMethodId ? (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => handleDeletePm(pm.paymentMethodId)}
+                    className="px-2 py-1 rounded-lg bg-red-600 text-white text-[10px] font-semibold cursor-pointer"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeletePmId(null)}
+                    className="px-2 py-1 rounded-lg border border-app text-[10px] font-medium cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 opacity-80 sm:opacity-70 group-hover:opacity-100 transition-opacity shrink-0">
+                  <button
+                    onClick={() => openEditPm(pm)}
+                    className="p-1 rounded-lg hover:bg-surface text-muted hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                    title="Edit"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeletePmId(pm.paymentMethodId)}
+                    className="p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-muted hover:text-red-600 cursor-pointer"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -664,6 +738,7 @@ export function Settings() {
                 <input
                   type="text"
                   required
+                  maxLength={50}
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
                   placeholder="e.g. Coffee, Streaming, Pet Care"
@@ -750,6 +825,7 @@ export function Settings() {
                 <input
                   type="text"
                   required
+                  maxLength={50}
                   value={pmName}
                   onChange={(e) => setPmName(e.target.value)}
                   placeholder="e.g. Amazon Pay, Paytm Wallet"

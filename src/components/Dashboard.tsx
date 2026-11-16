@@ -52,6 +52,7 @@ export function Dashboard({
   const { chartColors, isDark } = useTheme();
 
   const [settleModalOpen, setSettleModalOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   const currentUserUid = user?.uid || '';
   const currentUserName = userProfile?.displayName?.split(' ')[0] || 'You';
@@ -141,11 +142,12 @@ export function Dashboard({
           <button
             onClick={() => {
               navigator.clipboard?.writeText(account.inviteCode);
-              alert(`Copied Invite Code: ${account.inviteCode}`);
+              setCopiedCode(true);
+              setTimeout(() => setCopiedCode(false), 2000);
             }}
             className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-xs cursor-pointer"
           >
-            Copy Code: {account.inviteCode}
+            {copiedCode ? `Copied: ${account.inviteCode}` : `Copy Code: ${account.inviteCode}`}
           </button>
         </div>
       )}

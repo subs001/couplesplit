@@ -12,6 +12,7 @@ import {
   getDoc,
   serverTimestamp,
   writeBatch,
+  deleteField,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
@@ -84,6 +85,25 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [pendingInvitations, setPendingInvitations] = useState<SharedAccount[]>([]);
+
+  // Recursively remove undefined keys from plain objects while preserving Firestore FieldValue sentinels
+  const sanitizePlainObject = (obj: Record<string, any>): Record<string, any> => {
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === undefined) continue;
+      if (
+        value !== null &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        Object.getPrototypeOf(value) === Object.prototype
+      ) {
+        result[key] = sanitizePlainObject(value);
+      } else {
+        result[key] = value;
+      }
+    }
+    return result;
+  };
 
   // Generate 6-digit random uppercase invite code
   const generateInviteCode = () => {
@@ -555,8 +575,9 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     const path = `sharedAccounts/${account.accountId}/expenses`;
     try {
       const newDocRef = doc(collection(db, 'sharedAccounts', account.accountId, 'expenses'));
+      const sanitizedData = sanitizePlainObject(expenseData as Record<string, any>);
       await setDoc(newDocRef, {
-        ...expenseData,
+        ...sanitizedData,
         expenseId: newDocRef.id,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -572,8 +593,23 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     const path = `sharedAccounts/${account.accountId}/expenses/${expenseId}`;
     try {
       const docRef = doc(db, 'sharedAccounts', account.accountId, 'expenses', expenseId);
+      const sanitizedPayload: Record<string, any> = {};
+      for (const [key, value] of Object.entries(expenseData)) {
+        if (value === undefined) {
+          sanitizedPayload[key] = deleteField();
+        } else if (
+          value !== null &&
+          typeof value === 'object' &&
+          !Array.isArray(value) &&
+          Object.getPrototypeOf(value) === Object.prototype
+        ) {
+          sanitizedPayload[key] = sanitizePlainObject(value as Record<string, any>);
+        } else {
+          sanitizedPayload[key] = value;
+        }
+      }
       await updateDoc(docRef, {
-        ...expenseData,
+        ...sanitizedPayload,
         updatedAt: serverTimestamp(),
       });
     } catch (error) {
@@ -598,6 +634,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     if (!account) return { success: false, message: 'No active account' };
     const trimmed = name.trim();
     if (!trimmed) return { success: false, message: 'Category name is required' };
+    if (trimmed.length > 50) return { success: false, message: 'Category name must be 50 characters or less.' };
 
     const exists = categories.some(
       (c) => c.name.toLowerCase() === trimmed.toLowerCase()
@@ -612,8 +649,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       await setDoc(catRef, {
         categoryId: catRef.id,
         name: trimmed,
-        colour,
-        icon,
+        colour: colour || '#6366F1',
+        icon: icon || 'Tag',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -633,6 +670,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     if (!account) return { success: false, message: 'No active account' };
     const trimmed = name.trim();
     if (!trimmed) return { success: false, message: 'Category name is required' };
+    if (trimmed.length > 50) return { success: false, message: 'Category name must be 50 characters or less.' };
 
     const exists = categories.some(
       (c) => c.categoryId !== categoryId && c.name.toLowerCase() === trimmed.toLowerCase()
@@ -646,8 +684,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       const catRef = doc(db, 'sharedAccounts', account.accountId, 'categories', categoryId);
       await updateDoc(catRef, {
         name: trimmed,
-        colour,
-        icon,
+        colour: colour || '#6366F1',
+        icon: icon || 'Tag',
         updatedAt: serverTimestamp(),
       });
       return { success: true };
@@ -675,6 +713,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     if (!account) return { success: false, message: 'No active account' };
     const trimmed = name.trim();
     if (!trimmed) return { success: false, message: 'Payment method name is required' };
+    if (trimmed.length > 50) return { success: false, message: 'Payment method name must be 50 characters or less.' };
 
     const exists = paymentMethods.some(
       (pm) => pm.name.toLowerCase() === trimmed.toLowerCase()
@@ -689,7 +728,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       await setDoc(pmRef, {
         paymentMethodId: pmRef.id,
         name: trimmed,
-        icon,
+        icon: icon || 'CreditCard',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -704,6 +743,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     if (!account) return { success: false, message: 'No active account' };
     const trimmed = name.trim();
     if (!trimmed) return { success: false, message: 'Payment method name is required' };
+    if (trimmed.length > 50) return { success: false, message: 'Payment method name must be 50 characters or less.' };
 
     const exists = paymentMethods.some(
       (pm) => pm.paymentMethodId !== paymentMethodId && pm.name.toLowerCase() === trimmed.toLowerCase()
@@ -717,7 +757,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       const pmRef = doc(db, 'sharedAccounts', account.accountId, 'paymentMethods', paymentMethodId);
       await updateDoc(pmRef, {
         name: trimmed,
-        icon,
+        icon: icon || 'CreditCard',
         updatedAt: serverTimestamp(),
       });
       return { success: true };
