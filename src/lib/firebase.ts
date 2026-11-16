@@ -1,5 +1,14 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, browserLocalPersistence, setPersistence } from 'firebase/auth';
+import {
+  initializeAuth,
+  getAuth,
+  GoogleAuthProvider,
+  indexedDBLocalPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  browserPopupRedirectResolver,
+  Auth,
+} from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 
 // Read Firebase configuration directly from environment variables (Vite / Netlify / Production)
@@ -23,13 +32,22 @@ const app = initializeApp(firebaseConfig);
 // Initialize Cloud Firestore with the configured Database ID
 export const db = firestoreDatabaseId ? getFirestore(app, firestoreDatabaseId) : getFirestore(app);
 
-// Initialize Firebase Authentication
-export const auth = getAuth(app);
-
-// Configure local persistence so sessions survive refresh, browser closures & PWA launches
-setPersistence(auth, browserLocalPersistence).catch((err) => {
-  console.warn('Could not set browserLocalPersistence:', err);
-});
+// Initialize Firebase Authentication with IndexedDB persistence first (most reliable for PWAs & mobile)
+let authInstance: Auth;
+try {
+  authInstance = initializeAuth(app, {
+    persistence: [
+      indexedDBLocalPersistence,
+      browserLocalPersistence,
+      browserSessionPersistence,
+    ],
+    popupRedirectResolver: browserPopupRedirectResolver,
+  });
+} catch {
+  // Fallback if auth was already initialized during HMR
+  authInstance = getAuth(app);
+}
+export const auth = authInstance;
 
 // Configure Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();

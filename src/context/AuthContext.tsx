@@ -75,68 +75,122 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // 1. Process getRedirectResult for PWA / Mobile redirect logins
-    getRedirectResult(auth)
-      .then(async (result) => {
+    let isMounted = true;
+    let unsubscribe: (() => void) | undefined;
+
+    const initAuth = async () => {
+      // 1. Check and await any pending redirect result BEFORE finalizing initial loading state
+      let wasRedirectPending = false;
+      try {
+        wasRedirectPending = sessionStorage.getItem('duospend_auth_redirect_pending') === '1';
+        if (wasRedirectPending) {
+          sessionStorage.removeItem('duospend_auth_redirect_pending');
+        }
+      } catch {
+        // sessionStorage may be unavailable
+      }
+
+      try {
+        const result = await getRedirectResult(auth);
+        if (!isMounted) return;
+
         if (result?.user) {
           setUser(result.user);
           await syncUserProfile(result.user);
+        } else if (wasRedirectPending && !auth.currentUser) {
+          setError(
+            'Google redirect sign-in did not complete (your browser may be blocking cross-site storage). Please tap "Continue with Google" to sign in via popup instead.'
+          );
         }
-      })
-      .catch((err) => {
+      } catch (err: any) {
         console.warn('Redirect auth result info:', err);
-        if (err.code !== 'auth/credential-already-in-use') {
-          setError(err.message);
+        if (!isMounted) return;
+        if (err?.code === 'auth/unauthorized-domain') {
+          setError(
+            `This domain (${window.location.hostname}) is not authorized for Google Sign-In in Firebase Authentication.`
+          );
+        } else if (err?.code && err.code !== 'auth/credential-already-in-use') {
+          setError(err.message || 'Failed to complete Google sign-in');
         }
-      });
-
-    // 2. Track auth state
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        await syncUserProfile(currentUser);
-      } else {
-        setUserProfile(null);
       }
-      setLoading(false);
-    });
 
-    return () => unsubscribe();
+      if (!isMounted) return;
+
+      // 2. Track persistent auth state
+      unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        if (!isMounted) return;
+        setUser(currentUser);
+        if (currentUser) {
+          await syncUserProfile(currentUser);
+        } else {
+          setUserProfile(null);
+        }
+        setLoading(false);
+      });
+    };
+
+    initAuth();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async (useRedirect = false) => {
     setError(null);
 
-    const isMobile =
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
-      );
-
-    // If standalone PWA or explicit redirect requested or on mobile Safari where popups get blocked
-    if (useRedirect || (isStandalone && isMobile)) {
+    if (useRedirect) {
       try {
+        try {
+          sessionStorage.setItem('duospend_auth_redirect_pending', '1');
+        } catch {
+          // ignore
+        }
         await signInWithRedirect(auth, googleProvider);
         return;
       } catch (err: any) {
+        try {
+          sessionStorage.removeItem('duospend_auth_redirect_pending');
+        } catch {
+          // ignore
+        }
         console.error('Redirect sign-in error:', err);
-        setError(err.message || 'Failed to initialize sign-in');
+        setError(err.message || 'Failed to initialize redirect sign-in');
         return;
       }
     }
 
+    // Prefer signInWithPopup across desktop, mobile browsers, and PWAs
+    // (signInWithRedirect fails across origins on modern browsers due to third-party storage partitioning)
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      if (result?.user) {
+        setUser(result.user);
+        await syncUserProfile(result.user);
+      }
     } catch (err: any) {
       console.warn('Popup sign in note:', err);
 
-      // If popup was blocked or failed on phone, automatically fallback to redirect!
+      // Check if auth actually completed despite a popup warning
+      if (auth.currentUser) {
+        setUser(auth.currentUser);
+        await syncUserProfile(auth.currentUser);
+        return;
+      }
+
+      // Only fall back to redirect when the browser strictly blocked popups or environment forbids popups
       if (
         err.code === 'auth/popup-blocked' ||
-        err.code === 'auth/operation-not-supported-in-this-environment' ||
-        err.code === 'auth/popup-closed-by-user' && isMobile
+        err.code === 'auth/operation-not-supported-in-this-environment'
       ) {
-        console.log('Falling back to signInWithRedirect for mobile/PWA...');
+        console.log('Popup blocked/unsupported, falling back to signInWithRedirect...');
         try {
+          try {
+            sessionStorage.setItem('duospend_auth_redirect_pending', '1');
+          } catch {
+            // ignore
+          }
           await signInWithRedirect(auth, googleProvider);
           return;
         } catch (redirectErr: any) {
@@ -145,7 +199,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+      if (err.code === 'auth/unauthorized-domain') {
+        setError(
+          `This domain (${window.location.hostname}) is not authorized in Firebase Authentication. Please add it to Authorized Domains in Firebase Console.`
+        );
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in window was closed before completing. Please tap "Continue with Google" and keep the window open until sign-in finishes.');
+      } else if (err.code !== 'auth/cancelled-popup-request') {
         setError(err.message || 'Failed to sign in with Google');
       }
     }
