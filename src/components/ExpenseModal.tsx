@@ -229,8 +229,11 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150">
-      <div className="w-full max-w-lg bg-surface rounded-t-3xl sm:rounded-3xl border-t sm:border border-app shadow-2xl p-5 sm:p-6 my-0 sm:my-8 max-h-[92vh] overflow-y-auto relative safe-bottom">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+      <div
+        style={{ backgroundColor: 'var(--bg-surface)' }}
+        className="w-full max-w-lg bg-surface rounded-t-3xl sm:rounded-3xl border-t sm:border border-app shadow-2xl p-5 sm:p-6 my-0 sm:my-8 max-h-[92vh] overflow-y-auto relative safe-bottom"
+      >
         {/* Mobile handle pull bar */}
         <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-3 sm:hidden" />
 

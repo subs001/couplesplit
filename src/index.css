@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
@@ -47,6 +48,141 @@
   --brand-primary-hover: #BE123C;
   --brand-primary-light: #FFE4E6;
   --brand-accent: #DB2777;
+}
+
+[data-theme="pastel"] {
+  --bg-app: #F3F5F9;
+  --bg-surface: #FFFFFF;
+  --bg-surface-hover: #E6ECF4;
+  --bg-surface-subtle: #ECF1F7;
+  --border-app: #D9E2EC;
+  --border-subtle: #E6ECF4;
+  --text-main: #243040;
+  --text-muted: #5A687A;
+  --text-subtle: #8391A2;
+  --brand-primary: #5A7AE0;
+  --brand-primary-hover: #4A6AD0;
+  --brand-primary-light: #E8EEFC;
+  --brand-accent: #4DA89A;
+}
+
+/* Semantic surface and border utilities mapped to active theme variables */
+@layer utilities {
+  .bg-app {
+    background-color: var(--bg-app);
+  }
+  .bg-surface {
+    background-color: var(--bg-surface);
+  }
+  .bg-surface\/90 {
+    background-color: color-mix(in srgb, var(--bg-surface) 90%, transparent);
+  }
+  .bg-surface\/95 {
+    background-color: color-mix(in srgb, var(--bg-surface) 95%, transparent);
+  }
+  .bg-surface-subtle {
+    background-color: var(--bg-surface-subtle);
+  }
+  .bg-surface-subtle\/50 {
+    background-color: color-mix(in srgb, var(--bg-surface-subtle) 50%, transparent);
+  }
+  .hover\:bg-surface:hover {
+    background-color: var(--bg-surface);
+  }
+  .hover\:bg-surface-subtle:hover {
+    background-color: var(--bg-surface-subtle);
+  }
+  .hover\:bg-surface-subtle\/50:hover {
+    background-color: color-mix(in srgb, var(--bg-surface-subtle) 50%, transparent);
+  }
+  .border-app {
+    border-color: var(--border-app);
+  }
+  .divide-app > :not(:last-child) {
+    border-color: var(--border-app);
+  }
+  .ring-app {
+    --tw-ring-color: var(--bg-app);
+  }
+  .text-muted {
+    color: var(--text-muted);
+  }
+}
+
+/* Material & Flat overrides for the Pastel theme */
+[data-theme="pastel"] .shadow-xs,
+[data-theme="pastel"] .shadow-sm,
+[data-theme="pastel"] .shadow-md,
+[data-theme="pastel"] .shadow-lg,
+[data-theme="pastel"] .shadow-xl,
+[data-theme="pastel"] .shadow-2xl {
+  box-shadow: none;
+}
+
+[data-theme="pastel"] header .backdrop-blur-md,
+[data-theme="pastel"] nav .backdrop-blur-md,
+[data-theme="pastel"] .backdrop-blur-md.bg-surface\/90,
+[data-theme="pastel"] .backdrop-blur-md.bg-surface\/95 {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-theme="pastel"] .bg-surface\/90,
+[data-theme="pastel"] .bg-surface\/95 {
+  background-color: var(--bg-surface);
+}
+
+[data-theme="pastel"] .bg-indigo-600 {
+  background-color: #5A7AE0;
+}
+[data-theme="pastel"] .hover\:bg-indigo-700:hover,
+[data-theme="pastel"] .bg-indigo-700 {
+  background-color: #4A6AD0;
+}
+[data-theme="pastel"] .bg-indigo-50 {
+  background-color: #E8EEFC;
+}
+[data-theme="pastel"] .text-indigo-600,
+[data-theme="pastel"] .text-indigo-700 {
+  color: #3D5BBF;
+}
+[data-theme="pastel"] .border-indigo-600 {
+  border-color: #5A7AE0;
+}
+[data-theme="pastel"] .ring-indigo-600,
+[data-theme="pastel"] .ring-indigo-500 {
+  --tw-ring-color: #5A7AE0;
+}
+[data-theme="pastel"] .bg-gradient-to-tr {
+  background-image: none;
+  background-color: #5A7AE0;
+}
+[data-theme="pastel"] .bg-emerald-600 {
+  background-color: #48A191;
+}
+[data-theme="pastel"] .hover\:bg-emerald-700:hover {
+  background-color: #3B8E7F;
+}
+[data-theme="pastel"] .text-emerald-600 {
+  color: #328576;
+}
+[data-theme="pastel"] .bg-emerald-50 {
+  background-color: #E5F4F1;
+}
+[data-theme="pastel"] .bg-rose-50 {
+  background-color: #FCECEF;
+}
+[data-theme="pastel"] .text-rose-600 {
+  color: #C75D77;
+}
+[data-theme="pastel"] .bg-amber-50\/70 {
+  background-color: #FDF5E2;
+}
+[data-theme="pastel"] .bg-amber-600 {
+  background-color: #D99B4E;
+}
+[data-theme="pastel"] .hover\:bg-amber-700:hover {
+  background-color: #C4883D;
 }
 
 html, body {

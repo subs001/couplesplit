@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { useTheme } from '../context/ThemeContext';
@@ -13,13 +14,16 @@ import {
   UserPlus,
   LayoutDashboard,
   ReceiptText,
+  Target,
   BarChart3,
   Settings as SettingsIcon,
+  Layers,
 } from 'lucide-react';
+import { AppTab } from '../types';
 
 interface NavbarProps {
-  currentTab: 'dashboard' | 'transactions' | 'analytics' | 'settings';
-  setCurrentTab: (tab: 'dashboard' | 'transactions' | 'analytics' | 'settings') => void;
+  currentTab: AppTab;
+  setCurrentTab: (tab: AppTab) => void;
   onOpenAddExpense: () => void;
 }
 
@@ -36,13 +40,19 @@ export function Navbar({
   const cycleTheme = () => {
     if (theme === 'light') setTheme('dark');
     else if (theme === 'dark') setTheme('sakura');
+    else if (theme === 'sakura') setTheme('pastel');
     else setTheme('light');
   };
 
   const isConnected = account && account.memberUids.length >= 2;
 
   return (
-    <header className="sticky top-0 z-40 w-full backdrop-blur-md border-b bg-surface/90 border-app transition-colors safe-top">
+    <header
+      className={`sticky top-0 w-full border-b border-app transition-colors safe-top ${
+        userMenuOpen ? 'z-50' : 'z-40'
+      }`}
+    >
+      <div className="absolute inset-0 -z-10 bg-surface/90 backdrop-blur-md pointer-events-none" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
         {/* Brand & Duo Status */}
         <div className="flex items-center gap-3 sm:gap-6">
@@ -83,7 +93,7 @@ export function Navbar({
 
             <button
               onClick={() => setCurrentTab('transactions')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 currentTab === 'transactions'
                   ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300'
                   : 'text-muted hover:text-slate-900 dark:hover:text-white'
@@ -91,6 +101,18 @@ export function Navbar({
             >
               <ReceiptText className="w-4 h-4" />
               <span>Transactions</span>
+            </button>
+
+            <button
+              onClick={() => setCurrentTab('goals')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                currentTab === 'goals'
+                  ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300'
+                  : 'text-muted hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Target className="w-4 h-4" />
+              <span>Goals</span>
             </button>
 
             <button
@@ -187,6 +209,7 @@ export function Navbar({
             {theme === 'light' && <Sun className="w-4 h-4 text-amber-500" />}
             {theme === 'dark' && <Moon className="w-4 h-4 text-indigo-400" />}
             {theme === 'sakura' && <Flower2 className="w-4 h-4 text-rose-500" />}
+            {theme === 'pastel' && <Layers className="w-4 h-4 text-[#5A7AE0]" />}
           </button>
 
           {/* User profile & sign out dropdown */}
@@ -210,11 +233,19 @@ export function Navbar({
 
             {userMenuOpen && (
               <>
+                {typeof document !== 'undefined' &&
+                  createPortal(
+                    <div
+                      className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"
+                      onClick={() => setUserMenuOpen(false)}
+                      aria-hidden="true"
+                    />,
+                    document.body
+                  )}
                 <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setUserMenuOpen(false)}
-                />
-                <div className="absolute right-0 mt-2 w-56 rounded-2xl border shadow-xl bg-surface border-app p-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+                  style={{ backgroundColor: 'var(--bg-surface)' }}
+                  className="absolute right-0 mt-2 w-56 rounded-2xl border shadow-xl bg-surface border-app p-2 z-50 text-xs"
+                >
                   <div className="px-3 py-2 border-b border-app mb-1">
                     <p className="font-semibold truncate">{userProfile?.displayName}</p>
                     <p className="text-[11px] text-muted truncate">{userProfile?.email}</p>

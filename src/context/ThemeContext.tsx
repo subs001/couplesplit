@@ -6,6 +6,7 @@ interface ThemeContextType {
   setTheme: (theme: ThemeMode) => void;
   isDark: boolean;
   isSakura: boolean;
+  isPastel: boolean;
   chartColors: {
     primary: string;
     secondary: string;
@@ -26,7 +27,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem('duospend_theme');
-    if (saved === 'dark' || saved === 'sakura' || saved === 'light') {
+    if (saved === 'dark' || saved === 'sakura' || saved === 'pastel' || saved === 'light') {
       return saved;
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -88,6 +89,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       tooltipBg: '#FFF1F2',
       tooltipBorder: '#FECDD3',
     },
+    pastel: {
+      primary: '#6C8EEF', // Pastel Cornflower Blue
+      secondary: '#56B8A6', // Pastel Mint Teal
+      accent1: '#F2B863', // Pastel Honey Apricot
+      accent2: '#E38BA3', // Pastel Dusty Rose
+      accent3: '#A18BE6', // Pastel Lavender
+      accent4: '#76C48D', // Pastel Sage Green
+      accent5: '#6DBCE0', // Pastel Sky Blue
+      text: '#5A687A',
+      grid: '#E2E8F0',
+      tooltipBg: '#FFFFFF',
+      tooltipBorder: '#D9E1EC',
+    },
   }[theme];
 
   return (
@@ -97,6 +111,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setTheme,
         isDark: theme === 'dark',
         isSakura: theme === 'sakura',
+        isPastel: theme === 'pastel',
         chartColors,
       }}
     >

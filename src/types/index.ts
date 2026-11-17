@@ -75,7 +75,38 @@ export interface Settlement {
   createdAt?: any;
 }
 
-export type ThemeMode = 'light' | 'dark' | 'sakura';
+export type ThemeMode = 'light' | 'dark' | 'sakura' | 'pastel';
+
+export type AppTab = 'dashboard' | 'transactions' | 'goals' | 'analytics' | 'settings';
+
+export type GoalScope = 'shared' | 'personal';
+
+export interface Goal {
+  goalId: string;
+  accountId: string;
+  name: string;
+  targetAmount: number;
+  savingsAccount: string;
+  targetDate: string; // YYYY-MM-DD
+  scope: GoalScope;
+  isHiddenFromPartner: boolean;
+  createdBy: string; // Firebase UID
+  createdByName: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface GoalContribution {
+  contributionId: string;
+  goalId: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  note?: string;
+  contributedBy: string; // Firebase UID
+  contributedByName: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
 
 export type TimeFilter = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom';
 

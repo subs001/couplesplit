@@ -115,6 +115,96 @@ service cloud.firestore {
           && request.resource.data.name.size() <= 50;
         allow delete: if isMemberOfAccount(accountId);
       }
+
+      function getGoal(goalId) {
+        return get(/databases/$(database)/documents/sharedAccounts/$(accountId)/goals/$(goalId)).data;
+      }
+
+      function isValidGoal(data) {
+        return data.goalId is string && isValidId(data.goalId)
+          && data.accountId == accountId
+          && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+          && data.targetAmount is number && data.targetAmount > 0
+          && data.savingsAccount is string && data.savingsAccount.size() > 0 && data.savingsAccount.size() <= 80
+          && data.targetDate is string && data.targetDate.size() == 10 && data.targetDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+          && data.scope in ['shared', 'personal']
+          && data.isHiddenFromPartner is bool
+          && (data.scope == 'personal' || data.isHiddenFromPartner == false)
+          && data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() <= 128
+          && data.createdByName is string && data.createdByName.size() > 0 && data.createdByName.size() <= 80;
+      }
+
+      function isValidGoalContribution(data, goalId, goalData) {
+        return data.contributionId is string && isValidId(data.contributionId)
+          && data.goalId == goalId
+          && data.amount is number && data.amount > 0
+          && data.date is string && data.date.size() == 10 && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+          && (!('note' in data) || (data.note is string && data.note.size() <= 150))
+          && data.contributedBy is string && data.contributedBy.size() > 0 && data.contributedBy.size() <= 128
+          && data.contributedByName is string && data.contributedByName.size() > 0 && data.contributedByName.size() <= 80
+          && (goalData.scope == 'shared' || data.contributedBy == goalData.createdBy);
+      }
+
+      // Savings Goals subcollection
+      match /goals/{goalId} {
+        allow get: if isValidId(goalId)
+          && isMemberOfAccount(accountId)
+          && (resource.data.isHiddenFromPartner == false || resource.data.createdBy == request.auth.uid);
+
+        allow list: if isMemberOfAccount(accountId)
+          && (resource.data.isHiddenFromPartner == false || resource.data.createdBy == request.auth.uid);
+
+        allow create: if isValidId(goalId)
+          && isMemberOfAccount(accountId)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.keys().hasAll(['goalId', 'accountId', 'name', 'targetAmount', 'savingsAccount', 'targetDate', 'scope', 'isHiddenFromPartner', 'createdBy', 'createdByName'])
+          && request.resource.data.keys().hasOnly(['goalId', 'accountId', 'name', 'targetAmount', 'savingsAccount', 'targetDate', 'scope', 'isHiddenFromPartner', 'createdBy', 'createdByName', 'createdAt', 'updatedAt'])
+          && isValidGoal(request.resource.data);
+
+        allow update: if isValidId(goalId)
+          && isMemberOfAccount(accountId)
+          && isValidGoal(request.resource.data)
+          && request.resource.data.goalId == resource.data.goalId
+          && request.resource.data.accountId == resource.data.accountId
+          && request.resource.data.createdBy == resource.data.createdBy
+          && (
+            (resource.data.createdBy == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'targetAmount', 'savingsAccount', 'targetDate', 'scope', 'isHiddenFromPartner', 'updatedAt'])) ||
+            (resource.data.scope == 'shared' && request.resource.data.scope == 'shared' && request.resource.data.isHiddenFromPartner == false && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'targetAmount', 'savingsAccount', 'targetDate', 'updatedAt']))
+          );
+
+        allow delete: if isValidId(goalId)
+          && isMemberOfAccount(accountId)
+          && (resource.data.scope == 'shared' || resource.data.createdBy == request.auth.uid);
+
+        // Goal Contributions subcollection
+        match /contributions/{contributionId} {
+          allow read: if isValidId(goalId)
+            && isMemberOfAccount(accountId)
+            && (getGoal(goalId).isHiddenFromPartner == false || getGoal(goalId).createdBy == request.auth.uid);
+
+          allow create: if isValidId(goalId)
+            && isValidId(contributionId)
+            && isMemberOfAccount(accountId)
+            && (getGoal(goalId).scope == 'shared' || getGoal(goalId).createdBy == request.auth.uid)
+            && request.resource.data.keys().hasAll(['contributionId', 'goalId', 'amount', 'date', 'contributedBy', 'contributedByName'])
+            && request.resource.data.keys().hasOnly(['contributionId', 'goalId', 'amount', 'date', 'note', 'contributedBy', 'contributedByName', 'createdAt', 'updatedAt'])
+            && isValidGoalContribution(request.resource.data, goalId, getGoal(goalId));
+
+          allow update: if isValidId(goalId)
+            && isValidId(contributionId)
+            && isMemberOfAccount(accountId)
+            && (getGoal(goalId).scope == 'shared' || getGoal(goalId).createdBy == request.auth.uid)
+            && request.resource.data.contributionId == resource.data.contributionId
+            && request.resource.data.goalId == resource.data.goalId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['amount', 'date', 'note', 'contributedBy', 'contributedByName', 'updatedAt'])
+            && isValidGoalContribution(request.resource.data, goalId, getGoal(goalId));
+
+          allow delete: if isValidId(goalId)
+            && isValidId(contributionId)
+            && isMemberOfAccount(accountId)
+            && (getGoal(goalId).scope == 'shared' || getGoal(goalId).createdBy == request.auth.uid);
+        }
+      }
     }
   }
 }

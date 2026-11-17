@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { useTheme } from '../context/ThemeContext';
 import { computeFinancialSummary } from '../lib/calculations';
+import { calculateGoalProgress, calculateGoalsOverview } from '../lib/goalCalculations';
 import { formatINR, formatDisplayDate } from '../lib/currency';
 import { DynamicIcon } from '../lib/icons';
 import { SettleUpModal } from './SettleUpModal';
@@ -23,6 +24,7 @@ import {
   Percent,
   Layers,
   ChevronRight,
+  Target,
 } from 'lucide-react';
 import {
   PieChart,
@@ -39,16 +41,18 @@ import {
 interface DashboardProps {
   onOpenAddExpense: () => void;
   onNavigateToTransactions: () => void;
+  onNavigateToGoals: () => void;
   onEditExpense: (expense: Expense) => void;
 }
 
 export function Dashboard({
   onOpenAddExpense,
   onNavigateToTransactions,
+  onNavigateToGoals,
   onEditExpense,
 }: DashboardProps) {
   const { user, userProfile } = useAuth();
-  const { account, partnerProfile, partnerEmailPending, expenses, categories } = useAccount();
+  const { account, partnerProfile, partnerEmailPending, expenses, categories, goals, contributionsByGoal } = useAccount();
   const { chartColors, isDark } = useTheme();
 
   const [settleModalOpen, setSettleModalOpen] = useState(false);
@@ -115,6 +119,8 @@ export function Dashboard({
   ];
 
   const recentExpenses = expenses.slice(0, 6);
+  const goalsOverview = calculateGoalsOverview(goals, contributionsByGoal, currentUserUid, partnerUid);
+  const topGoals = goals.slice(0, 3);
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
@@ -408,6 +414,79 @@ export function Dashboard({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Savings Goals Preview */}
+      <div className="p-6 rounded-3xl border bg-surface border-app shadow-xs">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span>Savings Goals</span>
+            </h3>
+            <p className="text-xs text-muted mt-0.5 tabular-nums">
+              {goalsOverview.totalGoalsCount === 0
+                ? 'Track shared & personal savings targets'
+                : `${formatINR(goalsOverview.totalSaved)} saved of ${formatINR(goalsOverview.totalTarget)} (${goalsOverview.overallPercentage}%)`}
+            </p>
+          </div>
+          <button
+            onClick={onNavigateToGoals}
+            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <span>{goalsOverview.totalGoalsCount === 0 ? 'Set a Goal' : 'Manage Goals'}</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {topGoals.length === 0 ? (
+          <div className="py-6 text-center text-muted text-xs">
+            <span>No savings goals created yet. Tap "Set a Goal" to start saving together or individually.</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {topGoals.map((goal) => {
+              const prog = calculateGoalProgress(
+                goal,
+                contributionsByGoal[goal.goalId] || [],
+                currentUserUid,
+                partnerUid
+              );
+              return (
+                <button
+                  key={goal.goalId}
+                  type="button"
+                  onClick={onNavigateToGoals}
+                  className="p-4 rounded-2xl border border-app bg-surface-subtle/50 hover:border-indigo-400 transition-colors text-left space-y-2 cursor-pointer"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold truncate">{goal.name}</span>
+                    <span className="text-xs font-extrabold tabular-nums text-indigo-600 dark:text-indigo-400 shrink-0">
+                      {Math.round(prog.rawPercentage)}%
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-surface overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: `${prog.cappedPercentage}%`,
+                        backgroundColor: prog.isCompleted
+                          ? '#10B981'
+                          : goal.scope === 'shared'
+                          ? chartColors.primary
+                          : chartColors.secondary,
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-muted tabular-nums">
+                    <span>{formatINR(prog.totalSaved)}</span>
+                    <span>of {formatINR(goal.targetAmount)}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Recent Transactions List */}

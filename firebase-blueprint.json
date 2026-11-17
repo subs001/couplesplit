@@ -92,6 +92,43 @@
         "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
       },
       "required": ["paymentMethodId", "name", "icon"]
+    },
+    "Goal": {
+      "title": "Goal",
+      "description": "Shared or personal savings goal tracked in the account",
+      "type": "object",
+      "properties": {
+        "goalId": { "type": "string", "description": "Unique goal ID" },
+        "accountId": { "type": "string", "description": "Parent shared account ID" },
+        "name": { "type": "string", "maxLength": 100, "description": "Goal name" },
+        "targetAmount": { "type": "number", "description": "Target savings amount in INR" },
+        "savingsAccount": { "type": "string", "maxLength": 80, "description": "Associated bank or savings account name" },
+        "targetDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "Target completion date in YYYY-MM-DD" },
+        "scope": { "type": "string", "enum": ["shared", "personal"], "description": "Whether goal is shared together or personal" },
+        "isHiddenFromPartner": { "type": "boolean", "description": "Whether a personal goal is hidden from the partner" },
+        "createdBy": { "type": "string", "description": "Firebase UID of goal creator" },
+        "createdByName": { "type": "string", "maxLength": 80, "description": "Display name of goal creator" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["goalId", "accountId", "name", "targetAmount", "savingsAccount", "targetDate", "scope", "isHiddenFromPartner", "createdBy", "createdByName"]
+    },
+    "GoalContribution": {
+      "title": "GoalContribution",
+      "description": "Contribution record towards a savings goal",
+      "type": "object",
+      "properties": {
+        "contributionId": { "type": "string", "description": "Unique contribution ID" },
+        "goalId": { "type": "string", "description": "Parent goal ID" },
+        "amount": { "type": "number", "description": "Contribution amount in INR" },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "Contribution date in YYYY-MM-DD" },
+        "note": { "type": "string", "maxLength": 150, "description": "Optional note about the contribution" },
+        "contributedBy": { "type": "string", "description": "Firebase UID of contributor" },
+        "contributedByName": { "type": "string", "maxLength": 80, "description": "Display name of contributor" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["contributionId", "goalId", "amount", "date", "contributedBy", "contributedByName"]
     }
   },
   "firestore": {
@@ -118,6 +155,14 @@
     "/sharedAccounts/{accountId}/paymentMethods/{paymentMethodId}": {
       "schema": "PaymentMethod",
       "description": "Customizable payment methods within a shared account"
+    },
+    "/sharedAccounts/{accountId}/goals/{goalId}": {
+      "schema": "Goal",
+      "description": "Shared and personal savings goals within an account"
+    },
+    "/sharedAccounts/{accountId}/goals/{goalId}/contributions/{contributionId}": {
+      "schema": "GoalContribution",
+      "description": "Individual contribution entries toward a savings goal"
     }
   }
 }

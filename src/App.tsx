@@ -8,18 +8,19 @@ import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { Dashboard } from './components/Dashboard';
 import { Transactions } from './components/Transactions';
+import { Goals } from './components/Goals';
 import { Analytics } from './components/Analytics';
 import { Settings } from './components/Settings';
 import { ExpenseModal } from './components/ExpenseModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
-import { Expense } from './types';
+import { Expense, AppTab } from './types';
 import { Users, Loader2 } from 'lucide-react';
 
 function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const { account, accountLoading, joinAccountByCode } = useAccount();
 
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'transactions' | 'analytics' | 'settings'>('dashboard');
+  const [currentTab, setCurrentTab] = useState<AppTab>('dashboard');
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
@@ -91,6 +92,7 @@ function AppContent() {
           <Dashboard
             onOpenAddExpense={handleOpenAddExpense}
             onNavigateToTransactions={() => setCurrentTab('transactions')}
+            onNavigateToGoals={() => setCurrentTab('goals')}
             onEditExpense={handleEditExpense}
           />
         )}
@@ -101,6 +103,8 @@ function AppContent() {
             onEditExpense={handleEditExpense}
           />
         )}
+
+        {currentTab === 'goals' && <Goals />}
 
         {currentTab === 'analytics' && <Analytics />}
 

@@ -47,13 +47,23 @@ export function AuthScreen() {
         </button>
         <button
           onClick={() => setTheme('sakura')}
-          className={`px-2.5 py-1 rounded-full border transition-all ${
+          className={`px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
             theme === 'sakura'
               ? 'bg-rose-100 border-rose-300 font-semibold text-rose-900'
               : 'border-transparent text-rose-600 hover:text-rose-900'
           }`}
         >
           Sakura
+        </button>
+        <button
+          onClick={() => setTheme('pastel')}
+          className={`px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
+            theme === 'pastel'
+              ? 'bg-[#E8EEFC] border-[#BACBF7] font-semibold text-[#2B4294]'
+              : 'border-transparent text-[#5A7AE0] hover:text-[#2B4294]'
+          }`}
+        >
+          Pastel
         </button>
       </div>
 

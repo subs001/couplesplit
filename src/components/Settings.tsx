@@ -25,6 +25,7 @@ import {
   Flower2,
   Share2,
   Smartphone,
+  Layers,
 } from 'lucide-react';
 
 const PRESET_COLORS = [
@@ -255,7 +256,7 @@ export function Settings() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Light Theme */}
           <button
             onClick={() => setTheme('light')}
@@ -322,6 +323,31 @@ export function Settings() {
             <div className="font-bold text-xs">Sakura Pink</div>
             <div className="text-[11px] text-rose-600 mt-1">
               Soft pastel blush & muted rose accents
+            </div>
+          </button>
+
+          {/* Pastel Material Flat Theme */}
+          <button
+            onClick={() => setTheme('pastel')}
+            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden ${
+              theme === 'pastel'
+                ? 'border-[#5A7AE0] bg-[#F3F5F9] ring-2 ring-[#5A7AE0] text-[#243040]'
+                : 'border-[#D9E2EC] bg-[#F3F5F9]/70 hover:border-[#BACBF7] text-[#334155]'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-8 h-8 rounded-xl bg-[#E8EEFC] text-[#3D5BBF] flex items-center justify-center">
+                <Layers className="w-4 h-4" />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#6C8EEF]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#56B8A6]" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#F2B863]" />
+              </div>
+            </div>
+            <div className="font-bold text-xs">Pastel Flat</div>
+            <div className="text-[11px] text-[#5A687A] mt-1">
+              Flat Material surfaces & calm pastel tones
             </div>
           </button>
         </div>
@@ -720,8 +746,11 @@ export function Settings() {
 
       {/* Category Modal */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-sm bg-surface rounded-3xl border border-app shadow-2xl p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div
+            style={{ backgroundColor: 'var(--bg-surface)' }}
+            className="w-full max-w-sm bg-surface rounded-3xl border border-app shadow-2xl p-6"
+          >
             <h3 className="text-base font-bold mb-3">
               {editingCategoryId ? 'Edit Category' : 'Create Category'}
             </h3>
@@ -807,8 +836,11 @@ export function Settings() {
 
       {/* Payment Method Modal */}
       {isPmModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-sm bg-surface rounded-3xl border border-app shadow-2xl p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div
+            style={{ backgroundColor: 'var(--bg-surface)' }}
+            className="w-full max-w-sm bg-surface rounded-3xl border border-app shadow-2xl p-6"
+          >
             <h3 className="text-base font-bold mb-3">
               {editingPmId ? 'Edit Payment Method' : 'Create Payment Method'}
             </h3>

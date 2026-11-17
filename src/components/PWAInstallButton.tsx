@@ -97,8 +97,11 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
 
       {/* iOS Safari Step-by-Step Installation Modal */}
       {showIOSGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-sm bg-surface rounded-3xl border border-app shadow-2xl p-6 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div
+            style={{ backgroundColor: 'var(--bg-surface)' }}
+            className="w-full max-w-sm bg-surface rounded-3xl border border-app shadow-2xl p-6 relative"
+          >
             <button
               onClick={() => setShowIOSGuide(false)}
               className="absolute top-4 right-4 p-2 rounded-full hover:bg-surface-subtle text-muted hover:text-slate-900 dark:hover:text-white cursor-pointer"

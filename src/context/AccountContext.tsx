@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import {
   collection,
   doc,
@@ -22,8 +22,12 @@ import {
   Category,
   PaymentMethod,
   UserProfile,
+  Goal,
+  GoalContribution,
+  GoalScope,
 } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrors';
+import { canUserContributeToGoal, canUserManageGoal } from '../lib/goalCalculations';
 
 export const DEFAULT_CATEGORIES = [
   { name: 'Food', colour: '#F97316', icon: 'Utensils' },
@@ -53,6 +57,8 @@ interface AccountContextType {
   expenses: Expense[];
   categories: Category[];
   paymentMethods: PaymentMethod[];
+  goals: Goal[];
+  contributionsByGoal: Record<string, GoalContribution[]>;
   createNewAccount: (accountName?: string, inviteEmail?: string) => Promise<string>;
   invitePartnerByEmail: (email: string) => Promise<void>;
   joinAccountByCode: (code: string) => Promise<boolean>;
@@ -69,6 +75,37 @@ interface AccountContextType {
   addPaymentMethod: (name: string, icon: string) => Promise<{ success: boolean; message?: string }>;
   updatePaymentMethod: (paymentMethodId: string, name: string, icon: string) => Promise<{ success: boolean; message?: string }>;
   deletePaymentMethod: (paymentMethodId: string) => Promise<{ success: boolean; message?: string }>;
+  // Goals & Contributions CRUD
+  addGoal: (goal: {
+    name: string;
+    targetAmount: number;
+    savingsAccount: string;
+    targetDate: string;
+    scope: GoalScope;
+    isHiddenFromPartner: boolean;
+  }) => Promise<string>;
+  updateGoal: (
+    goalId: string,
+    updates: Partial<Pick<Goal, 'name' | 'targetAmount' | 'savingsAccount' | 'targetDate' | 'scope' | 'isHiddenFromPartner'>>
+  ) => Promise<void>;
+  toggleGoalPrivacy: (goalId: string, isHiddenFromPartner: boolean) => Promise<void>;
+  deleteGoal: (goalId: string) => Promise<void>;
+  addGoalContribution: (
+    goalId: string,
+    contribution: {
+      amount: number;
+      date: string;
+      note?: string;
+      contributedBy: string;
+      contributedByName: string;
+    }
+  ) => Promise<void>;
+  updateGoalContribution: (
+    goalId: string,
+    contributionId: string,
+    updates: Partial<Pick<GoalContribution, 'amount' | 'date' | 'note' | 'contributedBy' | 'contributedByName'>>
+  ) => Promise<void>;
+  deleteGoalContribution: (goalId: string, contributionId: string) => Promise<void>;
   // Reset / Disconnect
   leaveAccount: () => Promise<void>;
   pendingInvitations: SharedAccount[];
@@ -84,7 +121,10 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [contributionsByGoal, setContributionsByGoal] = useState<Record<string, GoalContribution[]>>({});
   const [pendingInvitations, setPendingInvitations] = useState<SharedAccount[]>([]);
+  const contribUnsubsRef = useRef<Record<string, () => void>>({});
 
   // Recursively remove undefined keys from plain objects while preserving Firestore FieldValue sentinels
   const sanitizePlainObject = (obj: Record<string, any>): Record<string, any> => {
@@ -123,6 +163,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       setExpenses([]);
       setCategories([]);
       setPaymentMethods([]);
+      setGoals([]);
+      setContributionsByGoal({});
       setPendingInvitations([]);
       setAccountLoading(false);
       return;
@@ -233,6 +275,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       setExpenses([]);
       setCategories([]);
       setPaymentMethods([]);
+      setGoals([]);
+      setContributionsByGoal({});
       return;
     }
 
@@ -295,12 +339,126 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
+    // Listen to Goals (visible shared/personal + creator's hidden personal goals)
+    const goalsRef = collection(db, 'sharedAccounts', accountId, 'goals');
+    const visibleGoalsQuery = query(goalsRef, where('isHiddenFromPartner', '==', false));
+    const myGoalsQuery = user ? query(goalsRef, where('createdBy', '==', user.uid)) : null;
+
+    const visibleMap = new Map<string, Goal>();
+    const myMap = new Map<string, Goal>();
+
+    const syncMergedGoals = () => {
+      const merged = new Map<string, Goal>();
+      visibleMap.forEach((g, id) => merged.set(id, g));
+      myMap.forEach((g, id) => merged.set(id, g));
+      const list = Array.from(merged.values()).sort((a, b) =>
+        a.targetDate.localeCompare(b.targetDate)
+      );
+      setGoals(list);
+    };
+
+    const unsubscribeVisibleGoals = onSnapshot(
+      visibleGoalsQuery,
+      (snapshot) => {
+        visibleMap.clear();
+        snapshot.forEach((docSnap) => {
+          visibleMap.set(docSnap.id, { ...(docSnap.data() as Goal), goalId: docSnap.id });
+        });
+        syncMergedGoals();
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, `sharedAccounts/${accountId}/goals`);
+      }
+    );
+
+    const unsubscribeMyGoals = myGoalsQuery
+      ? onSnapshot(
+          myGoalsQuery,
+          (snapshot) => {
+            myMap.clear();
+            snapshot.forEach((docSnap) => {
+              myMap.set(docSnap.id, { ...(docSnap.data() as Goal), goalId: docSnap.id });
+            });
+            syncMergedGoals();
+          },
+          (error) => {
+            handleFirestoreError(error, OperationType.LIST, `sharedAccounts/${accountId}/goals`);
+          }
+        )
+      : () => {};
+
     return () => {
       unsubscribeExpenses();
       unsubscribeCategories();
       unsubscribePM();
+      unsubscribeVisibleGoals();
+      unsubscribeMyGoals();
     };
-  }, [account]);
+  }, [account, user]);
+
+  // 4. Manage per-goal Contribution listeners in sync with visible goals
+  useEffect(() => {
+    const activeUnsubs = contribUnsubsRef.current;
+
+    if (!account) {
+      Object.values(activeUnsubs).forEach((unsub) => unsub());
+      contribUnsubsRef.current = {};
+      setContributionsByGoal({});
+      return;
+    }
+
+    const accountId = account.accountId;
+    const currentGoalIds = new Set(goals.map((g) => g.goalId));
+
+    // Unsubscribe from goals that were deleted or hidden
+    for (const goalId of Object.keys(activeUnsubs)) {
+      if (!currentGoalIds.has(goalId)) {
+        activeUnsubs[goalId]();
+        delete activeUnsubs[goalId];
+        setContributionsByGoal((prev) => {
+          const next = { ...prev };
+          delete next[goalId];
+          return next;
+        });
+      }
+    }
+
+    // Subscribe to newly visible goals
+    for (const goal of goals) {
+      if (!activeUnsubs[goal.goalId]) {
+        const contribRef = collection(db, 'sharedAccounts', accountId, 'goals', goal.goalId, 'contributions');
+        activeUnsubs[goal.goalId] = onSnapshot(
+          contribRef,
+          (snapshot) => {
+            const loaded: GoalContribution[] = [];
+            snapshot.forEach((docSnap) => {
+              loaded.push({ ...(docSnap.data() as GoalContribution), contributionId: docSnap.id });
+            });
+            loaded.sort((a, b) => b.date.localeCompare(a.date));
+            setContributionsByGoal((prev) => ({
+              ...prev,
+              [goal.goalId]: loaded,
+            }));
+          },
+          (error) => {
+            handleFirestoreError(
+              error,
+              OperationType.LIST,
+              `sharedAccounts/${accountId}/goals/${goal.goalId}/contributions`
+            );
+          }
+        );
+      }
+    }
+  }, [account, goals]);
+
+  // Cleanup all contribution listeners on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(contribUnsubsRef.current).forEach((unsub) => unsub());
+      contribUnsubsRef.current = {};
+    };
+  }, []);
 
   // Seed default categories and payment methods
   const seedDefaults = async (accountId: string) => {
@@ -780,6 +938,308 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Goals & Contributions CRUD
+  const addGoal = async (goalInput: {
+    name: string;
+    targetAmount: number;
+    savingsAccount: string;
+    targetDate: string;
+    scope: GoalScope;
+    isHiddenFromPartner: boolean;
+  }): Promise<string> => {
+    if (!account || !user) throw new Error('No active shared account');
+    const trimmedName = goalInput.name.trim();
+    const trimmedAccount = goalInput.savingsAccount.trim();
+    const targetAmount = Number(goalInput.targetAmount);
+
+    if (!trimmedName || trimmedName.length > 100) {
+      throw new Error('Goal name must be between 1 and 100 characters.');
+    }
+    if (!trimmedAccount || trimmedAccount.length > 80) {
+      throw new Error('Savings account name must be between 1 and 80 characters.');
+    }
+    if (isNaN(targetAmount) || targetAmount <= 0) {
+      throw new Error('Goal amount must be greater than 0.');
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(goalInput.targetDate)) {
+      throw new Error('Please choose a valid target date.');
+    }
+
+    const creatorName = (userProfile?.displayName || user.displayName || 'You').trim().slice(0, 80);
+    const isHidden = goalInput.scope === 'personal' ? Boolean(goalInput.isHiddenFromPartner) : false;
+
+    const path = `sharedAccounts/${account.accountId}/goals`;
+    try {
+      const goalRef = doc(collection(db, 'sharedAccounts', account.accountId, 'goals'));
+      await setDoc(goalRef, {
+        goalId: goalRef.id,
+        accountId: account.accountId,
+        name: trimmedName,
+        targetAmount,
+        savingsAccount: trimmedAccount,
+        targetDate: goalInput.targetDate,
+        scope: goalInput.scope,
+        isHiddenFromPartner: isHidden,
+        createdBy: user.uid,
+        createdByName: creatorName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      return goalRef.id;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  };
+
+  const updateGoal = async (
+    goalId: string,
+    updates: Partial<Pick<Goal, 'name' | 'targetAmount' | 'savingsAccount' | 'targetDate' | 'scope' | 'isHiddenFromPartner'>>
+  ) => {
+    if (!account || !user) throw new Error('No active shared account');
+    const existingGoal = goals.find((g) => g.goalId === goalId);
+    if (!existingGoal) throw new Error('Goal not found');
+    if (!canUserManageGoal(existingGoal, user.uid)) {
+      throw new Error('Only the creator of a personal goal can edit it.');
+    }
+
+    const payload: Record<string, any> = {};
+    if (updates.name !== undefined) {
+      const trimmed = updates.name.trim();
+      if (!trimmed || trimmed.length > 100) {
+        throw new Error('Goal name must be between 1 and 100 characters.');
+      }
+      payload.name = trimmed;
+    }
+    if (updates.savingsAccount !== undefined) {
+      const trimmed = updates.savingsAccount.trim();
+      if (!trimmed || trimmed.length > 80) {
+        throw new Error('Savings account name must be between 1 and 80 characters.');
+      }
+      payload.savingsAccount = trimmed;
+    }
+    if (updates.targetAmount !== undefined) {
+      const amt = Number(updates.targetAmount);
+      if (isNaN(amt) || amt <= 0) {
+        throw new Error('Goal amount must be greater than 0.');
+      }
+      payload.targetAmount = amt;
+    }
+    if (updates.targetDate !== undefined) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(updates.targetDate)) {
+        throw new Error('Please choose a valid target date.');
+      }
+      payload.targetDate = updates.targetDate;
+    }
+
+    // Only creator can modify scope or privacy visibility
+    if (existingGoal.createdBy === user.uid) {
+      const nextScope = updates.scope ?? existingGoal.scope;
+      if (updates.scope !== undefined) {
+        payload.scope = nextScope;
+      }
+      if (nextScope === 'shared') {
+        payload.isHiddenFromPartner = false;
+      } else if (updates.isHiddenFromPartner !== undefined) {
+        payload.isHiddenFromPartner = Boolean(updates.isHiddenFromPartner);
+      }
+    }
+
+    const path = `sharedAccounts/${account.accountId}/goals/${goalId}`;
+    try {
+      const goalRef = doc(db, 'sharedAccounts', account.accountId, 'goals', goalId);
+      await updateDoc(goalRef, {
+        ...payload,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  };
+
+  const toggleGoalPrivacy = async (goalId: string, isHiddenFromPartner: boolean) => {
+    if (!account || !user) throw new Error('No active shared account');
+    const existingGoal = goals.find((g) => g.goalId === goalId);
+    if (!existingGoal) throw new Error('Goal not found');
+    if (existingGoal.scope !== 'personal' || existingGoal.createdBy !== user.uid) {
+      throw new Error('Only your own personal savings goals can be hidden from your partner.');
+    }
+    await updateGoal(goalId, { isHiddenFromPartner });
+  };
+
+  const deleteGoal = async (goalId: string) => {
+    if (!account || !user) throw new Error('No active shared account');
+    const existingGoal = goals.find((g) => g.goalId === goalId);
+    if (!existingGoal) throw new Error('Goal not found');
+    if (!canUserManageGoal(existingGoal, user.uid)) {
+      throw new Error('Only the creator of a personal goal can delete it.');
+    }
+
+    const path = `sharedAccounts/${account.accountId}/goals/${goalId}`;
+    try {
+      const contribsRef = collection(db, 'sharedAccounts', account.accountId, 'goals', goalId, 'contributions');
+      const snap = await getDocs(contribsRef);
+      const batch = writeBatch(db);
+      snap.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+      batch.delete(doc(db, 'sharedAccounts', account.accountId, 'goals', goalId));
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  };
+
+  const addGoalContribution = async (
+    goalId: string,
+    contribution: {
+      amount: number;
+      date: string;
+      note?: string;
+      contributedBy: string;
+      contributedByName: string;
+    }
+  ) => {
+    if (!account || !user) throw new Error('No active shared account');
+    const existingGoal = goals.find((g) => g.goalId === goalId);
+    if (!existingGoal) throw new Error('Goal not found');
+    if (!canUserContributeToGoal(existingGoal, user.uid)) {
+      throw new Error('Only the creator can contribute to a personal savings goal.');
+    }
+
+    const amount = Number(contribution.amount);
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error('Contribution amount must be greater than 0.');
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(contribution.date)) {
+      throw new Error('Please choose a valid contribution date.');
+    }
+
+    const trimmedNote = contribution.note?.trim();
+    if (trimmedNote && trimmedNote.length > 150) {
+      throw new Error('Contribution note must be 150 characters or less.');
+    }
+
+    const contributorUid =
+      existingGoal.scope === 'personal' ? existingGoal.createdBy : contribution.contributedBy;
+    const contributorName = (
+      existingGoal.scope === 'personal'
+        ? existingGoal.createdByName
+        : contribution.contributedByName
+    )
+      .trim()
+      .slice(0, 80);
+
+    const path = `sharedAccounts/${account.accountId}/goals/${goalId}/contributions`;
+    try {
+      const contribRef = doc(collection(db, 'sharedAccounts', account.accountId, 'goals', goalId, 'contributions'));
+      const dataToWrite = sanitizePlainObject({
+        contributionId: contribRef.id,
+        goalId,
+        amount,
+        date: contribution.date,
+        ...(trimmedNote ? { note: trimmedNote } : {}),
+        contributedBy: contributorUid,
+        contributedByName: contributorName || 'You',
+      });
+      await setDoc(contribRef, {
+        ...dataToWrite,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  };
+
+  const updateGoalContribution = async (
+    goalId: string,
+    contributionId: string,
+    updates: Partial<Pick<GoalContribution, 'amount' | 'date' | 'note' | 'contributedBy' | 'contributedByName'>>
+  ) => {
+    if (!account || !user) throw new Error('No active shared account');
+    const existingGoal = goals.find((g) => g.goalId === goalId);
+    if (!existingGoal) throw new Error('Goal not found');
+    if (!canUserContributeToGoal(existingGoal, user.uid)) {
+      throw new Error('Only the creator can modify contributions on a personal savings goal.');
+    }
+
+    const payload: Record<string, any> = {};
+    if (updates.amount !== undefined) {
+      const amt = Number(updates.amount);
+      if (isNaN(amt) || amt <= 0) {
+        throw new Error('Contribution amount must be greater than 0.');
+      }
+      payload.amount = amt;
+    }
+    if (updates.date !== undefined) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(updates.date)) {
+        throw new Error('Please choose a valid contribution date.');
+      }
+      payload.date = updates.date;
+    }
+    if ('note' in updates) {
+      const trimmedNote = updates.note?.trim();
+      if (!trimmedNote) {
+        payload.note = deleteField();
+      } else {
+        if (trimmedNote.length > 150) {
+          throw new Error('Contribution note must be 150 characters or less.');
+        }
+        payload.note = trimmedNote;
+      }
+    }
+    if (existingGoal.scope === 'shared') {
+      if (updates.contributedBy !== undefined) payload.contributedBy = updates.contributedBy;
+      if (updates.contributedByName !== undefined) {
+        payload.contributedByName = updates.contributedByName.trim().slice(0, 80) || 'You';
+      }
+    }
+
+    const path = `sharedAccounts/${account.accountId}/goals/${goalId}/contributions/${contributionId}`;
+    try {
+      const contribRef = doc(
+        db,
+        'sharedAccounts',
+        account.accountId,
+        'goals',
+        goalId,
+        'contributions',
+        contributionId
+      );
+      await updateDoc(contribRef, {
+        ...payload,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  };
+
+  const deleteGoalContribution = async (goalId: string, contributionId: string) => {
+    if (!account || !user) throw new Error('No active shared account');
+    const existingGoal = goals.find((g) => g.goalId === goalId);
+    if (!existingGoal) throw new Error('Goal not found');
+    if (!canUserContributeToGoal(existingGoal, user.uid)) {
+      throw new Error('Only the creator can delete contributions on a personal savings goal.');
+    }
+
+    const path = `sharedAccounts/${account.accountId}/goals/${goalId}/contributions/${contributionId}`;
+    try {
+      const contribRef = doc(
+        db,
+        'sharedAccounts',
+        account.accountId,
+        'goals',
+        goalId,
+        'contributions',
+        contributionId
+      );
+      await deleteDoc(contribRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  };
+
   // Derive pending partner email if 1 member and second email exists
   const partnerEmailPending =
     account && account.memberUids.length === 1 && user
@@ -796,6 +1256,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
         expenses,
         categories,
         paymentMethods,
+        goals,
+        contributionsByGoal,
         createNewAccount,
         invitePartnerByEmail,
         joinAccountByCode,
@@ -809,6 +1271,13 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
         addPaymentMethod,
         updatePaymentMethod,
         deletePaymentMethod,
+        addGoal,
+        updateGoal,
+        toggleGoalPrivacy,
+        deleteGoal,
+        addGoalContribution,
+        updateGoalContribution,
+        deleteGoalContribution,
         leaveAccount,
         pendingInvitations,
       }}
