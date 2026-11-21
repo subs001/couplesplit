@@ -25,9 +25,12 @@ import {
   Goal,
   GoalContribution,
   GoalScope,
+  Budget,
+  BudgetScope,
 } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/firestoreErrors';
 import { canUserContributeToGoal, canUserManageGoal } from '../lib/goalCalculations';
+import { checkBudgetConflict } from '../lib/budgetCalculations';
 
 export const DEFAULT_CATEGORIES = [
   { name: 'Food', colour: '#F97316', icon: 'Utensils' },
@@ -59,6 +62,9 @@ interface AccountContextType {
   paymentMethods: PaymentMethod[];
   goals: Goal[];
   contributionsByGoal: Record<string, GoalContribution[]>;
+  sharedBudgets: Budget[];
+  individualBudgets: Budget[];
+  budgets: Budget[];
   createNewAccount: (accountName?: string, inviteEmail?: string) => Promise<string>;
   invitePartnerByEmail: (email: string) => Promise<void>;
   joinAccountByCode: (code: string) => Promise<boolean>;
@@ -106,6 +112,10 @@ interface AccountContextType {
     updates: Partial<Pick<GoalContribution, 'amount' | 'date' | 'note' | 'contributedBy' | 'contributedByName'>>
   ) => Promise<void>;
   deleteGoalContribution: (goalId: string, contributionId: string) => Promise<void>;
+  // Budgets CRUD
+  addBudget: (budget: { categoryId: string; monthlyLimit: number; scope: BudgetScope }) => Promise<void>;
+  updateBudget: (budget: Budget, updates: { monthlyLimit: number }) => Promise<void>;
+  deleteBudget: (budget: Budget) => Promise<void>;
   // Reset / Disconnect
   leaveAccount: () => Promise<void>;
   pendingInvitations: SharedAccount[];
@@ -123,6 +133,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [contributionsByGoal, setContributionsByGoal] = useState<Record<string, GoalContribution[]>>({});
+  const [sharedBudgets, setSharedBudgets] = useState<Budget[]>([]);
+  const [individualBudgets, setIndividualBudgets] = useState<Budget[]>([]);
   const [pendingInvitations, setPendingInvitations] = useState<SharedAccount[]>([]);
   const contribUnsubsRef = useRef<Record<string, () => void>>({});
 
@@ -165,6 +177,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       setPaymentMethods([]);
       setGoals([]);
       setContributionsByGoal({});
+      setSharedBudgets([]);
+      setIndividualBudgets([]);
       setPendingInvitations([]);
       setAccountLoading(false);
       return;
@@ -277,6 +291,8 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       setPaymentMethods([]);
       setGoals([]);
       setContributionsByGoal({});
+      setSharedBudgets([]);
+      setIndividualBudgets([]);
       return;
     }
 
@@ -387,12 +403,60 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
         )
       : () => {};
 
+    // Listen to Shared Budgets
+    const sharedBudgetsRef = collection(db, 'sharedAccounts', accountId, 'budgets');
+    const unsubscribeSharedBudgets = onSnapshot(
+      sharedBudgetsRef,
+      (snapshot) => {
+        const loaded: Budget[] = [];
+        snapshot.forEach((docSnap) => {
+          loaded.push({
+            ...(docSnap.data() as Budget),
+            budgetId: docSnap.id,
+            scope: 'shared',
+          });
+        });
+        loaded.sort((a, b) => a.categoryName.localeCompare(b.categoryName));
+        setSharedBudgets(loaded);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, `sharedAccounts/${accountId}/budgets`);
+      }
+    );
+
+    // Listen to Private Individual Budgets (owner-only, not synced across partner accounts)
+    const individualBudgetsQuery = user
+      ? query(collection(db, 'users', user.uid, 'budgets'), where('accountId', '==', accountId))
+      : null;
+    const unsubscribeIndividualBudgets = individualBudgetsQuery
+      ? onSnapshot(
+          individualBudgetsQuery,
+          (snapshot) => {
+            const loaded: Budget[] = [];
+            snapshot.forEach((docSnap) => {
+              loaded.push({
+                ...(docSnap.data() as Budget),
+                budgetId: docSnap.id,
+                scope: 'individual',
+              });
+            });
+            loaded.sort((a, b) => a.categoryName.localeCompare(b.categoryName));
+            setIndividualBudgets(loaded);
+          },
+          (error) => {
+            handleFirestoreError(error, OperationType.LIST, `users/${user?.uid}/budgets`);
+          }
+        )
+      : () => {};
+
     return () => {
       unsubscribeExpenses();
       unsubscribeCategories();
       unsubscribePM();
       unsubscribeVisibleGoals();
       unsubscribeMyGoals();
+      unsubscribeSharedBudgets();
+      unsubscribeIndividualBudgets();
     };
   }, [account, user]);
 
@@ -1240,6 +1304,147 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Budgets CRUD
+  const addBudget = async (budgetInput: {
+    categoryId: string;
+    monthlyLimit: number;
+    scope: BudgetScope;
+  }) => {
+    if (!account || !user) throw new Error('No active shared account');
+    const category = categories.find((c) => c.categoryId === budgetInput.categoryId);
+    if (!category) {
+      throw new Error('Please choose a valid category.');
+    }
+
+    const monthlyLimit = Number(budgetInput.monthlyLimit);
+    if (isNaN(monthlyLimit) || monthlyLimit <= 0) {
+      throw new Error('Monthly budget limit must be greater than 0.');
+    }
+
+    const conflict = checkBudgetConflict(
+      category.categoryId,
+      budgetInput.scope,
+      sharedBudgets,
+      individualBudgets
+    );
+    if (!conflict.allowed) {
+      throw new Error(conflict.reason || 'A budget conflict exists for this category.');
+    }
+
+    const safeCatName = category.name.trim().slice(0, 50);
+
+    if (budgetInput.scope === 'shared') {
+      const path = `sharedAccounts/${account.accountId}/budgets/${category.categoryId}`;
+      const creatorName = (userProfile?.displayName || user.displayName || 'You').trim().slice(0, 80);
+      try {
+        const budgetRef = doc(db, 'sharedAccounts', account.accountId, 'budgets', category.categoryId);
+        await setDoc(budgetRef, {
+          budgetId: category.categoryId,
+          accountId: account.accountId,
+          categoryId: category.categoryId,
+          categoryName: safeCatName,
+          monthlyLimit,
+          scope: 'shared',
+          createdBy: user.uid,
+          createdByName: creatorName,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error: any) {
+        if (error?.code === 'permission-denied') {
+          throw new Error(
+            'Unable to create a shared budget because an individual budget already exists for this category.'
+          );
+        }
+        handleFirestoreError(error, OperationType.CREATE, path);
+      }
+    } else {
+      const compositeId = `${account.accountId}_${category.categoryId}`;
+      const path = `users/${user.uid}/budgets/${compositeId}`;
+      try {
+        const budgetRef = doc(db, 'users', user.uid, 'budgets', compositeId);
+        await setDoc(budgetRef, {
+          budgetId: compositeId,
+          accountId: account.accountId,
+          categoryId: category.categoryId,
+          categoryName: safeCatName,
+          monthlyLimit,
+          scope: 'individual',
+          ownerUid: user.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error: any) {
+        if (error?.code === 'permission-denied') {
+          throw new Error(
+            'Unable to create an individual budget because a shared budget already exists for this category.'
+          );
+        }
+        handleFirestoreError(error, OperationType.CREATE, path);
+      }
+    }
+  };
+
+  const updateBudget = async (budget: Budget, updates: { monthlyLimit: number }) => {
+    if (!account || !user) throw new Error('No active shared account');
+    const monthlyLimit = Number(updates.monthlyLimit);
+    if (isNaN(monthlyLimit) || monthlyLimit <= 0) {
+      throw new Error('Monthly budget limit must be greater than 0.');
+    }
+
+    const latestCat = categories.find((c) => c.categoryId === budget.categoryId);
+    const safeCatName = (latestCat?.name || budget.categoryName).trim().slice(0, 50);
+
+    if (budget.scope === 'shared') {
+      const path = `sharedAccounts/${account.accountId}/budgets/${budget.categoryId}`;
+      try {
+        const budgetRef = doc(db, 'sharedAccounts', account.accountId, 'budgets', budget.categoryId);
+        await updateDoc(budgetRef, {
+          monthlyLimit,
+          categoryName: safeCatName,
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, path);
+      }
+    } else {
+      const path = `users/${user.uid}/budgets/${budget.budgetId}`;
+      try {
+        const budgetRef = doc(db, 'users', user.uid, 'budgets', budget.budgetId);
+        await updateDoc(budgetRef, {
+          monthlyLimit,
+          categoryName: safeCatName,
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, path);
+      }
+    }
+  };
+
+  const deleteBudget = async (budget: Budget) => {
+    if (!account || !user) throw new Error('No active shared account');
+    if (budget.scope === 'shared') {
+      const path = `sharedAccounts/${account.accountId}/budgets/${budget.categoryId}`;
+      try {
+        await deleteDoc(doc(db, 'sharedAccounts', account.accountId, 'budgets', budget.categoryId));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, path);
+      }
+    } else {
+      const path = `users/${user.uid}/budgets/${budget.budgetId}`;
+      try {
+        await deleteDoc(doc(db, 'users', user.uid, 'budgets', budget.budgetId));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, path);
+      }
+    }
+  };
+
+  const budgets = [...sharedBudgets, ...individualBudgets].sort((a, b) =>
+    a.categoryName.localeCompare(b.categoryName)
+  );
+
   // Derive pending partner email if 1 member and second email exists
   const partnerEmailPending =
     account && account.memberUids.length === 1 && user
@@ -1258,6 +1463,9 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
         paymentMethods,
         goals,
         contributionsByGoal,
+        sharedBudgets,
+        individualBudgets,
+        budgets,
         createNewAccount,
         invitePartnerByEmail,
         joinAccountByCode,
@@ -1278,6 +1486,9 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
         addGoalContribution,
         updateGoalContribution,
         deleteGoalContribution,
+        addBudget,
+        updateBudget,
+        deleteBudget,
         leaveAccount,
         pendingInvitations,
       }}

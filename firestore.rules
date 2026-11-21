@@ -34,6 +34,41 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow create, update: if isOwner(userId);
       allow delete: if false;
+
+      function isValidIndividualBudget(data, uid, bId) {
+        return data.budgetId is string && isValidId(data.budgetId)
+          && data.budgetId == bId
+          && data.accountId is string && isValidId(data.accountId)
+          && data.categoryId is string && isValidId(data.categoryId)
+          && bId == (data.accountId + '_' + data.categoryId)
+          && data.categoryName is string && data.categoryName.size() > 0 && data.categoryName.size() <= 50
+          && data.monthlyLimit is number && data.monthlyLimit > 0
+          && data.scope == 'individual'
+          && data.ownerUid == uid;
+      }
+
+      // Private individual budgets (owner-only, not synced across accounts)
+      match /budgets/{budgetId} {
+        allow get: if isValidId(budgetId) && isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isValidId(budgetId)
+          && isOwner(userId)
+          && request.resource.data.keys().hasAll(['budgetId', 'accountId', 'categoryId', 'categoryName', 'monthlyLimit', 'scope', 'ownerUid'])
+          && request.resource.data.keys().hasOnly(['budgetId', 'accountId', 'categoryId', 'categoryName', 'monthlyLimit', 'scope', 'ownerUid', 'createdAt', 'updatedAt'])
+          && isValidIndividualBudget(request.resource.data, userId, budgetId)
+          && isMemberOfAccount(request.resource.data.accountId)
+          && !exists(/databases/$(database)/documents/sharedAccounts/$(request.resource.data.accountId)/budgets/$(request.resource.data.categoryId));
+        allow update: if isValidId(budgetId)
+          && isOwner(userId)
+          && isValidIndividualBudget(request.resource.data, userId, budgetId)
+          && request.resource.data.budgetId == resource.data.budgetId
+          && request.resource.data.accountId == resource.data.accountId
+          && request.resource.data.categoryId == resource.data.categoryId
+          && request.resource.data.scope == resource.data.scope
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['monthlyLimit', 'categoryName', 'updatedAt']);
+        allow delete: if isValidId(budgetId) && isOwner(userId);
+      }
     }
 
     // Invite Codes registry (direct 1:1 lookup)
@@ -206,6 +241,49 @@ service cloud.firestore {
             && isMemberOfAccount(accountId)
             && (getGoal(goalId).scope == 'shared' || getGoal(goalId).createdBy == request.auth.uid);
         }
+      }
+
+      function hasIndividualBudgetForCategory(uid, accId, catId) {
+        return exists(/databases/$(database)/documents/users/$(uid)/budgets/$(accId + '_' + catId));
+      }
+
+      function isValidSharedBudget(data, catId) {
+        return data.budgetId is string && isValidId(data.budgetId)
+          && data.budgetId == catId
+          && data.accountId == accountId
+          && data.categoryId == catId
+          && data.categoryName is string && data.categoryName.size() > 0 && data.categoryName.size() <= 50
+          && data.monthlyLimit is number && data.monthlyLimit > 0
+          && data.scope == 'shared'
+          && data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() <= 128
+          && data.createdByName is string && data.createdByName.size() > 0 && data.createdByName.size() <= 80;
+      }
+
+      // Shared Monthly Budgets subcollection (at most one document per categoryId)
+      match /budgets/{categoryId} {
+        allow get: if isValidId(categoryId) && isMemberOfAccount(accountId);
+        allow list: if isMemberOfAccount(accountId);
+
+        allow create: if isValidId(categoryId)
+          && isMemberOfAccount(accountId)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.keys().hasAll(['budgetId', 'accountId', 'categoryId', 'categoryName', 'monthlyLimit', 'scope', 'createdBy', 'createdByName'])
+          && request.resource.data.keys().hasOnly(['budgetId', 'accountId', 'categoryId', 'categoryName', 'monthlyLimit', 'scope', 'createdBy', 'createdByName', 'createdAt', 'updatedAt'])
+          && isValidSharedBudget(request.resource.data, categoryId)
+          && !hasIndividualBudgetForCategory(getAccount(accountId).memberUids[0], accountId, categoryId)
+          && (getAccount(accountId).memberUids.size() < 2 || !hasIndividualBudgetForCategory(getAccount(accountId).memberUids[1], accountId, categoryId));
+
+        allow update: if isValidId(categoryId)
+          && isMemberOfAccount(accountId)
+          && isValidSharedBudget(request.resource.data, categoryId)
+          && request.resource.data.budgetId == resource.data.budgetId
+          && request.resource.data.accountId == resource.data.accountId
+          && request.resource.data.categoryId == resource.data.categoryId
+          && request.resource.data.scope == resource.data.scope
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['monthlyLimit', 'categoryName', 'updatedAt']);
+
+        allow delete: if isValidId(categoryId) && isMemberOfAccount(accountId);
       }
     }
   }

@@ -1,10 +1,9 @@
 import React from 'react';
 import {
-  LayoutDashboard,
   ReceiptText,
   Target,
   BarChart3,
-  Settings as SettingsIcon,
+  Gauge,
   Plus,
 } from 'lucide-react';
 import { AppTab } from '../types';
@@ -21,20 +20,12 @@ export function BottomNav({
   onOpenAddExpense,
 }: BottomNavProps) {
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-md border-t border-app px-1.5 py-1 flex items-center justify-between safe-bottom shadow-lg transition-colors">
+    <nav
+      aria-label="Mobile Bottom Navigation"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-md border-t border-app px-2 py-1 flex items-center justify-between safe-bottom shadow-lg transition-colors"
+    >
       <button
-        onClick={() => setCurrentTab('dashboard')}
-        className={`flex-1 flex flex-col items-center justify-center min-w-[44px] min-h-[48px] py-1 rounded-xl text-[10px] font-semibold transition-all cursor-pointer active:scale-95 ${
-          currentTab === 'dashboard'
-            ? 'text-indigo-600 dark:text-indigo-400 font-bold'
-            : 'text-muted hover:text-slate-800 dark:hover:text-slate-200'
-        }`}
-      >
-        <LayoutDashboard className="w-5 h-5 mb-0.5" />
-        <span>Home</span>
-      </button>
-
-      <button
+        type="button"
         onClick={() => setCurrentTab('transactions')}
         className={`flex-1 flex flex-col items-center justify-center min-w-[44px] min-h-[48px] py-1 rounded-xl text-[10px] font-semibold transition-all cursor-pointer active:scale-95 ${
           currentTab === 'transactions'
@@ -47,6 +38,7 @@ export function BottomNav({
       </button>
 
       <button
+        type="button"
         onClick={() => setCurrentTab('goals')}
         className={`flex-1 flex flex-col items-center justify-center min-w-[44px] min-h-[48px] py-1 rounded-xl text-[10px] font-semibold transition-all cursor-pointer active:scale-95 ${
           currentTab === 'goals'
@@ -61,6 +53,7 @@ export function BottomNav({
       {/* Floating Center Plus Button */}
       <div className="relative -top-3.5 flex items-center justify-center px-1 shrink-0">
         <button
+          type="button"
           onClick={onOpenAddExpense}
           className="w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-700 active:from-indigo-700 active:to-indigo-800 text-white flex items-center justify-center shadow-lg shadow-indigo-600/35 active:scale-90 transition-all cursor-pointer ring-4 ring-app"
           aria-label="Add Expense"
@@ -70,6 +63,7 @@ export function BottomNav({
       </div>
 
       <button
+        type="button"
         onClick={() => setCurrentTab('analytics')}
         className={`flex-1 flex flex-col items-center justify-center min-w-[44px] min-h-[48px] py-1 rounded-xl text-[10px] font-semibold transition-all cursor-pointer active:scale-95 ${
           currentTab === 'analytics'
@@ -82,15 +76,16 @@ export function BottomNav({
       </button>
 
       <button
-        onClick={() => setCurrentTab('settings')}
+        type="button"
+        onClick={() => setCurrentTab('budgets')}
         className={`flex-1 flex flex-col items-center justify-center min-w-[44px] min-h-[48px] py-1 rounded-xl text-[10px] font-semibold transition-all cursor-pointer active:scale-95 ${
-          currentTab === 'settings'
+          currentTab === 'budgets'
             ? 'text-indigo-600 dark:text-indigo-400 font-bold'
             : 'text-muted hover:text-slate-800 dark:hover:text-slate-200'
         }`}
       >
-        <SettingsIcon className="w-5 h-5 mb-0.5" />
-        <span>Settings</span>
+        <Gauge className="w-5 h-5 mb-0.5" />
+        <span>Budget</span>
       </button>
     </nav>
   );

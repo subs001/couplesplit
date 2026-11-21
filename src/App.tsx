@@ -9,6 +9,7 @@ import { BottomNav } from './components/BottomNav';
 import { Dashboard } from './components/Dashboard';
 import { Transactions } from './components/Transactions';
 import { Goals } from './components/Goals';
+import { Budgets } from './components/Budgets';
 import { Analytics } from './components/Analytics';
 import { Settings } from './components/Settings';
 import { ExpenseModal } from './components/ExpenseModal';
@@ -105,6 +106,8 @@ function AppContent() {
         )}
 
         {currentTab === 'goals' && <Goals />}
+
+        {currentTab === 'budgets' && <Budgets />}
 
         {currentTab === 'analytics' && <Analytics />}
 

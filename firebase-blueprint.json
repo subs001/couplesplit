@@ -130,12 +130,51 @@
         "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
       },
       "required": ["contributionId", "goalId", "amount", "date", "contributedBy", "contributedByName"]
+    },
+    "SharedBudget": {
+      "title": "SharedBudget",
+      "description": "Monthly shared category budget for the couple (max one per category)",
+      "type": "object",
+      "properties": {
+        "budgetId": { "type": "string", "description": "Budget ID matching categoryId" },
+        "accountId": { "type": "string", "description": "Parent shared account ID" },
+        "categoryId": { "type": "string", "description": "Target expense category ID" },
+        "categoryName": { "type": "string", "maxLength": 50, "description": "Category display name" },
+        "monthlyLimit": { "type": "number", "description": "Monthly expenditure limit in INR" },
+        "scope": { "type": "string", "enum": ["shared"], "description": "Budget scope" },
+        "createdBy": { "type": "string", "description": "Firebase UID of creator" },
+        "createdByName": { "type": "string", "maxLength": 80, "description": "Display name of creator" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["budgetId", "accountId", "categoryId", "categoryName", "monthlyLimit", "scope", "createdBy", "createdByName"]
+    },
+    "IndividualBudget": {
+      "title": "IndividualBudget",
+      "description": "Private monthly individual category budget stored per user (not synced across partner accounts)",
+      "type": "object",
+      "properties": {
+        "budgetId": { "type": "string", "description": "Composite ID accountId_categoryId" },
+        "accountId": { "type": "string", "description": "Associated shared account ID" },
+        "categoryId": { "type": "string", "description": "Target expense category ID" },
+        "categoryName": { "type": "string", "maxLength": 50, "description": "Category display name" },
+        "monthlyLimit": { "type": "number", "description": "Monthly expenditure limit in INR" },
+        "scope": { "type": "string", "enum": ["individual"], "description": "Budget scope" },
+        "ownerUid": { "type": "string", "description": "Firebase UID of budget owner" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["budgetId", "accountId", "categoryId", "categoryName", "monthlyLimit", "scope", "ownerUid"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "User profile directory"
+    },
+    "/users/{userId}/budgets/{budgetId}": {
+      "schema": "IndividualBudget",
+      "description": "Private individual monthly category budgets per user"
     },
     "/sharedAccounts/{accountId}": {
       "schema": "SharedAccount",
@@ -164,6 +203,10 @@
     "/sharedAccounts/{accountId}/goals/{goalId}/contributions/{contributionId}": {
       "schema": "GoalContribution",
       "description": "Individual contribution entries toward a savings goal"
+    },
+    "/sharedAccounts/{accountId}/budgets/{categoryId}": {
+      "schema": "SharedBudget",
+      "description": "Shared monthly category budgets (at most one per category)"
     }
   }
 }

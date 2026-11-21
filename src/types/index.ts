@@ -78,9 +78,25 @@ export interface Settlement {
 
 export type ThemeMode = 'light' | 'dark' | 'sakura' | 'pastel';
 
-export type AppTab = 'dashboard' | 'transactions' | 'goals' | 'analytics' | 'settings';
+export type AppTab = 'dashboard' | 'transactions' | 'goals' | 'budgets' | 'analytics' | 'settings';
 
 export type GoalScope = 'shared' | 'personal';
+
+export type BudgetScope = 'shared' | 'individual';
+
+export interface Budget {
+  budgetId: string;
+  accountId: string;
+  categoryId: string;
+  categoryName: string;
+  monthlyLimit: number;
+  scope: BudgetScope;
+  createdBy?: string;
+  createdByName?: string;
+  ownerUid?: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
 
 export interface Goal {
   goalId: string;
