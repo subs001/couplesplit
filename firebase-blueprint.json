@@ -60,6 +60,7 @@
         "paidByName": { "type": "string", "description": "Display name of payer" },
         "splitType": { "type": "string", "enum": ["equal", "personal", "custom"], "description": "How the expense is split" },
         "splitDetails": { "type": "object", "description": "Split breakdown per user" },
+        "alreadySplit": { "type": "boolean", "description": "Whether the expense is already split between partners and excluded from settle balance" },
         "expenseDate": { "type": "string", "description": "Date of expense in YYYY-MM-DD" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
         "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }

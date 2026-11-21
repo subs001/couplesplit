@@ -58,6 +58,7 @@ export interface Expense {
   paidByName: string;
   splitType: SplitType;
   splitDetails?: SplitDetails;
+  alreadySplit?: boolean;
   expenseDate: string; // YYYY-MM-DD
   createdAt?: any;
   updatedAt?: any;

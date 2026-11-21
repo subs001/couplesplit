@@ -87,12 +87,14 @@ service cloud.firestore {
           && request.resource.data.title is string
           && request.resource.data.title.size() <= 200
           && request.resource.data.amount is number
-          && request.resource.data.amount > 0;
+          && request.resource.data.amount > 0
+          && (!('alreadySplit' in request.resource.data) || request.resource.data.alreadySplit is bool);
         allow update: if isMemberOfAccount(accountId)
           && request.resource.data.title is string
           && request.resource.data.title.size() <= 200
           && request.resource.data.amount is number
-          && request.resource.data.amount > 0;
+          && request.resource.data.amount > 0
+          && (!('alreadySplit' in request.resource.data) || request.resource.data.alreadySplit is bool);
         allow delete: if isMemberOfAccount(accountId);
       }
 

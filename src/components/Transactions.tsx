@@ -92,7 +92,7 @@ export function Transactions({ onOpenAddExpense, onEditExpense }: TransactionsPr
   // Export to CSV
   const exportToCSV = () => {
     if (filteredList.length === 0) return;
-    const headers = ['Date', 'Title', 'Amount', 'Category', 'Payment Method', 'Paid By', 'Split Type', 'Location'];
+    const headers = ['Date', 'Title', 'Amount', 'Category', 'Payment Method', 'Paid By', 'Split Type', 'Already Split', 'Location'];
     const rows = filteredList.map((e) => [
       e.expenseDate,
       `"${e.title.replace(/"/g, '""')}"`,
@@ -101,6 +101,7 @@ export function Transactions({ onOpenAddExpense, onEditExpense }: TransactionsPr
       `"${e.paymentMethodName}"`,
       `"${e.paidByName}"`,
       e.splitType,
+      e.alreadySplit ? 'Yes' : 'No',
       `"${(e.location || '').replace(/"/g, '""')}"`,
     ]);
 
@@ -418,6 +419,11 @@ export function Transactions({ onOpenAddExpense, onEditExpense }: TransactionsPr
 
                     <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold mt-1">
                       {splitText}
+                      {expense.alreadySplit && (
+                        <span className="text-emerald-600 dark:text-emerald-400 ml-1.5">
+                          · Already Split
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

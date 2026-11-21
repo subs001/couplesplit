@@ -50,41 +50,54 @@ export function computeFinancialSummary(
     totalExpenditure += amount;
 
     const isPaidByUser1 = exp.paidBy === user1Uid;
-    if (isPaidByUser1) {
-      user1Paid += amount;
-    } else {
-      user2Paid += amount;
-    }
+    let u1Share = 0;
+    let u2Share = 0;
 
     if (exp.splitType === 'personal') {
       if (isPaidByUser1) {
-        user1AttributedShare += amount;
+        u1Share = amount;
         user1PersonalTotal += amount;
       } else {
-        user2AttributedShare += amount;
+        u2Share = amount;
         user2PersonalTotal += amount;
       }
     } else if (exp.splitType === 'equal') {
       const half = amount / 2;
-      user1AttributedShare += half;
-      user2AttributedShare += half;
+      u1Share = half;
+      u2Share = half;
       sharedExpenditure += amount;
     } else if (exp.splitType === 'custom' && exp.splitDetails) {
       sharedExpenditure += amount;
       const d = exp.splitDetails;
       if (d.user1Uid === user1Uid) {
-        user1AttributedShare += Number(d.user1Amount) || 0;
-        user2AttributedShare += Number(d.user2Amount) || 0;
+        u1Share = Number(d.user1Amount) || 0;
+        u2Share = Number(d.user2Amount) || 0;
       } else {
-        user1AttributedShare += Number(d.user2Amount) || 0;
-        user2AttributedShare += Number(d.user1Amount) || 0;
+        u1Share = Number(d.user2Amount) || 0;
+        u2Share = Number(d.user1Amount) || 0;
       }
     } else {
       // Fallback: equal split
       const half = amount / 2;
-      user1AttributedShare += half;
-      user2AttributedShare += half;
+      u1Share = half;
+      u2Share = half;
       sharedExpenditure += amount;
+    }
+
+    user1AttributedShare += u1Share;
+    user2AttributedShare += u2Share;
+
+    if (exp.alreadySplit) {
+      // Expense was already split between both partners:
+      // Each partner's paid contribution equals their fair share, adding 0 to settle balance.
+      user1Paid += u1Share;
+      user2Paid += u2Share;
+    } else {
+      if (isPaidByUser1) {
+        user1Paid += amount;
+      } else {
+        user2Paid += amount;
+      }
     }
   }
 

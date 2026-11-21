@@ -30,6 +30,7 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
   const [expenseDate, setExpenseDate] = useState(getTodayString());
   const [paidBy, setPaidBy] = useState<string>('');
   const [splitType, setSplitType] = useState<SplitType>('equal');
+  const [alreadySplit, setAlreadySplit] = useState<boolean>(false);
 
   // Custom split state
   const [customMode, setCustomMode] = useState<'amount' | 'percentage'>('amount');
@@ -57,6 +58,7 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
       setExpenseDate(editingExpense.expenseDate);
       setPaidBy(editingExpense.paidBy);
       setSplitType(editingExpense.splitType);
+      setAlreadySplit(Boolean(editingExpense.alreadySplit));
 
       if (editingExpense.splitDetails) {
         const d = editingExpense.splitDetails;
@@ -81,6 +83,7 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
       setExpenseDate(getTodayString());
       setPaidBy(currentUserUid);
       setSplitType('equal');
+      setAlreadySplit(false);
       setUser1CustomAmount(0);
       setUser2CustomAmount(0);
       setUser1CustomPercent(50);
@@ -185,6 +188,7 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
 
     const payerName = paidBy === currentUserUid ? currentUserName : partnerName;
     const trimmedLocation = location.trim();
+    const effectiveAlreadySplit = splitType === 'personal' ? false : alreadySplit;
 
     setIsSubmitting(true);
     try {
@@ -201,6 +205,7 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
           paidByName: payerName,
           splitType,
           splitDetails: splitDetailsData,
+          alreadySplit: effectiveAlreadySplit,
           expenseDate,
         });
       } else {
@@ -214,6 +219,7 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
           paidBy,
           paidByName: payerName,
           splitType,
+          alreadySplit: effectiveAlreadySplit,
           expenseDate,
           ...(trimmedLocation ? { location: trimmedLocation } : {}),
           ...(splitDetailsData ? { splitDetails: splitDetailsData } : {}),
@@ -580,6 +586,39 @@ export function ExpenseModal({ isOpen, onClose, editingExpense }: ExpenseModalPr
                     {formatINR(user1CustomAmount + user2CustomAmount)} / {formatINR(numAmount)}
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* Already Split Option */}
+            {splitType !== 'personal' && (
+              <div className="mt-3 p-3.5 rounded-2xl border border-app bg-surface-subtle/70 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold">Already split between us</div>
+                  <p className="text-[11px] text-muted mt-0.5">
+                    {alreadySplit
+                      ? 'Excluded from settle balance; each share counts as paid in Contribution vs Fair Share charts.'
+                      : 'Adds unpaid share to settle balance until settled.'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={alreadySplit}
+                  aria-label="Mark expense as already split"
+                  onClick={() => setAlreadySplit(!alreadySplit)}
+                  className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border-2 border-transparent transition-colors cursor-pointer ${
+                    alreadySplit
+                      ? 'bg-emerald-600'
+                      : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform ${
+                      alreadySplit ? 'translate-x-5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
               </div>
             )}
           </div>

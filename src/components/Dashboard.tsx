@@ -567,6 +567,7 @@ export function Dashboard({
                         : expense.splitType === 'personal'
                         ? 'Personal'
                         : 'Custom Split'}
+                      {expense.alreadySplit ? ' · Already Split' : ''}
                     </div>
                   </div>
                 </div>
